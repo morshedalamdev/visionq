@@ -57,7 +57,13 @@ The ingestion/training path is a CLI/worker workflow, not a tool the LLM can tri
 | Agent | User question and selected scope | Cited answer, verification status and trace | API process |
 | Presentation | API responses | Charts, overlays, evidence views and exports | Streamlit |
 
-Proposed API surface: `GET /health`, `GET /datasets`, `GET /runs/{id}`, `GET /batches/{id}/metrics`, `GET /images/{id}/results`, `GET /quality`, `POST /questions`, `GET /answers/{id}`, and `GET /evidence/{id}`. Inputs use Pydantic schemas; errors distinguish unknown IDs, unavailable data, incompatible scopes, timeout and internal failure. Long ML jobs run through CLI, not HTTP background tasks. The API delegates analytics to the same service as MCP and does not recompute formulas.
+Proposed API surface: `GET /health`, `GET /datasets`, `GET /runs`, `GET /runs/{id}`, `GET /batches/{id}/metrics`, `GET /images/{id}/results`, `GET /quality`, `POST /questions`, `GET /answers`, `GET /answers/{id}`, and `GET /evidence/{id}`. History list endpoints have bounded pagination and date/dataset/batch/model/run-status filters. Inputs use Pydantic schemas; errors distinguish unknown IDs, unavailable data, incompatible scopes, timeout and internal failure. Long ML jobs run through CLI, not HTTP background tasks. The API delegates analytics to the same service as MCP and does not recompute formulas.
+
+### User interface and history
+
+Streamlit provides dataset/quality views, image inspection with boxes, a history/performance panel, and an AI question/evidence view. History reopens saved runs, charts, detections, quality reports and AI answers from persistent records, including after restart. Compare selected model evaluations using precision, recall and mAP displayed as percentages, with split/support/protocol and class breakdowns. Do not combine incompatible protocols into an unqualified ranking. Unlabeled inference has no measured accuracy; show that as unavailable, and keep prediction confidence distinct from accuracy.
+
+Sequential delivery: M4.T4 builds real dataset/run/history/performance views and the defined agent/evidence view structure against explicitly labeled contract fixtures. M5.T1 connects the live agent and saved-answer history and tests reopening evidence after restart. Fixture previews must not report successful live inference. The user applies all UI code through the section-by-section teaching workflow.
 
 ## Storage and database contract
 

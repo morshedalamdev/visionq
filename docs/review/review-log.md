@@ -2,7 +2,7 @@
 
 Review target: the documentation package created on 21 October 2026. This reviews research coverage, architecture, feasibility and consistency; it does not certify unbuilt software or unrun experiments.
 
-Status: **PASS after two independent review rounds**, 21 October 2026.
+Original architecture/planning review: **PASS after two independent review rounds**, 21 October 2026. Later workflow amendments are tracked separately below; the original pass does not certify new software or tests.
 
 Research was parallelized across separate agents for the engineering papers, vision repository/papers, and LLM design. After the draft package was complete, a separate agent (`final_reviewer`) read the documents and challenged the contracts. Findings and corrections are recorded below; a pass is recorded only after the reviewer actually issues it.
 
@@ -42,3 +42,15 @@ Verdict: **PASS**. The reviewer re-read the corrected architecture, evaluation p
 Final reviewer statement: “No blocking documentation issue remains. This approves the plan's coherence, not implementation performance or supervisor acceptance.”
 
 Hardware feasibility, the exact institutional deadline, the actual dataset archive/rights, dependency/model compatibility and supervisor acceptance remain explicit M1/M2 checks. They are unknown implementation inputs, not completed checks. The root repeated the structural validation after corrections: all 10 Markdown files (including root AGENTS.md) passed local-link/fence checks, with six modules and 22 unique tasks. No software tests or research experiments were run because this deliverable is documentation only.
+
+## User-led workflow amendment on 21 October 2026
+
+The user will implement the project themselves, with this chat acting as Architecture agent and one separate chat per module. Each task must pass all required checks before advancement. Later clarification requires teaching what/why and every file in explained logical sections, not whole-file code dumps.
+
+An independent read-only consistency review identified overlapping module dates, autonomous implementation instructions, a UI dependency on the not-yet-built agent, and wording that could waive required checks. The amendment replaces these with sequential M1–M6 dates, a strict evidence gate, read-only module guidance, M4 fixture UI/M5 live-agent integration, and an explicit distinction between research outcomes and software checks. The benchmark freeze moves to 14 November, with experiments on 15–18 November; November completion remains the goal.
+
+Added WORKFLOW.md and TASK_LOG.md, updated root AGENTS.md and PROJECT_STATE, and aligned the development/evaluation plans and index. Also made the previously discussed history/performance UI explicit. Read-only inspection found existing Git (`main`, commit `1f66779`); the state record was corrected without claiming M1.T1 passed. Review evidence comes from accessible IRM chats, not an unavailable local IRM repository.
+
+Amendment validation: **PASS**, independently rechecked by `workflow_consistency` against the actual revised files. Teaching/section assembly, manual application/testing, strict task gates, sequential dates, the November 14 freeze, M4/M5 UI integration and handoff records are consistent. Applied its final wording suggestion so root AGENTS identifies the designated Architecture chat without assigning that role to every module chat.
+
+Structural validation passed for all 12 Markdown files: no broken local links or unmatched fences, six modules with 22 unique task IDs matching TASK_LOG. `git diff --check` passed. No source implementation, dependency installation or application test was performed, and no task gate was marked passed.

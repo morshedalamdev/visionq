@@ -1,6 +1,6 @@
 # Evaluation protocol and thesis deliverables
 
-All experiments below are planned. No scores, trained model or latency measurements exist yet. Freeze the relevant inputs and protocol before each final experiment. Keep research outcomes separate from software acceptance checks: an honest negative result can answer a research question.
+All experiments below are planned. No scores, trained model or latency measurements exist yet. Freeze the relevant inputs and protocol before each final experiment. Follow the user-led [workflow](../agent/WORKFLOW.md): Codex explains the purpose/code/checks, the user implements and executes them, and all required task checks must pass before advancement. Keep research outcomes separate from software acceptance checks: an honest negative result can answer a research question.
 
 ## Experiment A Data pipeline reliability
 
@@ -65,9 +65,9 @@ Tag each question's expected action (`answer`, `partial`, `clarify`, `abstain`) 
 
 Each benchmark record contains ID, split, family ID, question, scope IDs, expected action, required atomic facts, gold numeric values/tolerances, allowed supporting evidence/chunks, forbidden unsupported claims and scoring notes. Gold values must be audited using independent SQL or hand-checked exports, not only the production metric helper being evaluated. Ideally a peer verifies the reference answers; disclose if that is unavailable.
 
-Start writing the benchmark and rubric on fixtures in late October. After the detector is frozen, create immutable test prediction snapshots and finalize gold values without tuning the detector on them. Test question answers and evaluator annotations never enter RAG, prompts or examples. Relevant source documents remain retrievable: evidence access is intended, answer leakage is not.
+Prepare the benchmark and rubric during M5, beginning 9 November, after the M4 gate. M5.T1 uses development fixtures; M5.T2 creates the separate formal development/test sets. After the detector is frozen, use immutable test prediction snapshots and finalize gold values without tuning the detector on them. Test question answers and evaluator annotations never enter RAG, prompts or examples. Relevant source documents remain retrievable: evidence access is intended, answer leakage is not.
 
-Freeze by 12 November: model and embedding digests, prompts, tool/query versions, verifier rules, corpus/chunk manifest, test questions/gold, retrieval top-k/threshold, generation limits and timeout policy. Save checksums in an experiment manifest. Prompt/model tuning uses only development questions. If a final-run bug is found, preserve old results and log the deviation; any confirmatory evaluation after tuning needs fresh untouched cases or must be described as exploratory.
+Freeze by 14 November: model and embedding digests, prompts, tool/query versions, verifier rules, corpus/chunk manifest, test questions/gold, retrieval top-k/threshold, generation limits and timeout policy. Save checksums in an experiment manifest. Prompt/model tuning uses only development questions and ends before freeze. Run final experiments on 15–18 November, after the preceding task gates pass. If a final-run bug is found, preserve old results and log the deviation; any confirmatory evaluation after tuning needs fresh untouched cases or must be described as exploratory.
 
 ### Scoring rules
 
