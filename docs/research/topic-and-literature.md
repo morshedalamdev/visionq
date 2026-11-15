@@ -2,6 +2,8 @@
 
 Reviewed on 21 October 2026. Evidence comes from the supplied topic, the six-paper attachment, the existing proposal, the supervisor repository, primary papers and official technical documentation. Paper methods and relevant experimental sections were read; this is a design-focused review, not a reproduction of their experiments.
 
+Deployment clarification, 13 November: the user selected Azure infrastructure while preserving self-hosted Docker models. References to a “local agent/model” below mean models inside our own deployment, now supporting an Azure VM and a local fallback. Private Blob backups add recovery, not a new LLM hypothesis. See the [Azure plan](../design/azure-and-student-services.md); the original paper review and research questions remain unchanged.
+
 ## Recommended thesis direction
 
 Original title: **A Data Engineering Framework for Industrial Visual Defect Detection Using Machine Learning**.

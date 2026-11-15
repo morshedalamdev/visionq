@@ -1,6 +1,6 @@
 # Technology stack and environment plan
 
-Required choices for the reference implementation are below. This is a selection, not a record of installed dependencies. Verify a compatible set in M1, lock exact versions and image digests, and avoid changing them during final experiments. Official documentation was checked on 21 October 2026. A model candidate is not a promise of adequate speed on unmeasured hardware.
+Required choices for the reference implementation are below. This is a selection, not a record of installed dependencies. Verify a compatible set in M1, lock exact versions and image digests, and avoid changing them during final experiments. Core stack documentation was checked on 21 October 2026; Azure/student-service choices were added on 13 November. A model candidate is not a promise of adequate speed on unmeasured hardware. See [Azure and student services](azure-and-student-services.md) for current benefit evidence, deployment limits and twelve-month costs.
 
 ## Required application stack
 
@@ -13,13 +13,14 @@ Required choices for the reference implementation are below. This is a selection
 | Tabular work | pandas | Dataset audits and small result exports; SQL remains the metric authority |
 | Database | PostgreSQL 16 with pgvector | Metadata, lineage, metrics, answer traces and local document vectors in one service |
 | DB access | SQLAlchemy 2, psycopg 3, Alembic | Typed persistence, parameterized queries and migrations |
-| Artifact storage | Local mounted filesystem, pathlib, hashlib | Immutable images/XML/manifests/checkpoints; no MinIO service required |
+| Runtime artifact storage | Host-local mounted filesystem, pathlib, hashlib | Immutable images/XML/manifests/checkpoints on laptop or VM persistent disk; no MinIO service required |
+| Backup storage | Azure Blob Storage, `azure-storage-blob`, `azure-identity` | Explicit private backup/restore adapter with checksums and completion markers; not on the live answer path |
 | Contracts | Pydantic 2 and pydantic-settings | Config, tool, evidence and answer validation |
 | API | FastAPI and Uvicorn | Stable HTTP interface between dashboard and application services |
-| Local LLM server | Ollama in Docker | Generator and embedding models served locally; cloud disabled |
-| Generator candidate | `qwen3:4b-instruct-2507-q4_K_M` | Small local instruction model; evaluate tool planning and answer quality before freezing |
-| Embedding candidate | `embeddinggemma:300m` | Local document and question embeddings; pin full digest and dimension |
-| Model client | Ollama Python client or a single HTTP client adapter | Schema-constrained calls, timeouts and measured usage; choose one in M1 |
+| Model serving (selected 15 November 2026) | vLLM in Docker: `vllm-gen` and `vllm-embed` | Separate generation and pooling servers can load the two models on one host |
+| Generator candidate | [Qwen/Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) | Instruction checkpoint with a chat template for tool plans and evidence-grounded answers |
+| Embedding candidate | [google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) | Document and query vectors; 768 dimensions by default, 2,048 input tokens including formatting |
+| Model client | One `httpx` adapter with two explicit internal base URLs | Send JSON over the vLLM OpenAI-compatible HTTP interface; enforce timeouts, validate responses, and fail on missing configuration |
 | Agent | Small explicit Python state machine | Bounded tool selection, evidence assembly, checks and one repair; no framework dependency needed |
 | MCP | Official `mcp` Python SDK, supported stable release line | Server/client for five tools over Streamable HTTP; verify the pinned API together |
 | Document RAG | Section-aware text chunking + pgvector exact cosine search | Small auditable knowledge collection with citations; no separate vector database |
@@ -28,23 +29,29 @@ Required choices for the reference implementation are below. This is a selection
 | Safe XML import | defusedxml | Parse downloaded annotations without resolving external entities |
 | Testing | pytest, HTTP test client, small fixtures | Conversion, metrics, retries, MCP, retrieval and full local workflow checks |
 | Code quality | Ruff; optional static type checking after basic checks pass | Keep one small codebase readable without building tooling for its own sake |
-| Packaging | Docker Engine/Desktop and Compose v2 | Reference local deployment, volumes, health checks and offline demo |
-| Version control | Git | Version code, configuration, documentation and benchmark specifications |
+| Packaging | Docker Engine on Linux VM, Desktop locally; Compose v2 | Shared deployment, volumes, health checks and local offline demo |
+| Azure infrastructure | One Linux VM, persistent managed disk, VNet/NSG, private Blob container, Entra identity, Cost Management | Scheduled self-hosted compute, restricted SSH access, backup and credit monitoring; exact SKU/region unresolved |
+| Infrastructure operation | Azure portal/CLI and OpenSSH | User-run setup, identity, SSH tunnels, cost checks and verified deallocation; no Terraform requirement for this small build |
+| Version control and CI | Git, GitHub repository and GitHub Actions | Version source and run lightweight fixture checks; student Pro benefits subject to verified activation |
 | Reporting | Markdown, exported CSV/JSON, Plotly/Matplotlib figures, university report format | Produce reproducible results and the final written thesis |
 
 PostgreSQL 16 is a deliberate supported baseline, not a claim that it is the newest release. Select a tested pgvector image/tag with that major version and pin its digest. No requirements file or lock is generated during this documentation-only task because the compatibility smoke test has not happened.
 
+Record local and VM CPU architectures. Share source/configuration/model pins, but record and test platform-specific container digests and dependency profiles where ARM/x86 or CPU/CUDA differ. A multi-platform image index does not imply identical underlying platform images. Cache the correct local images and model weights for the offline restore; final LLM comparisons use one fixed host/image profile.
+
 ## Models, hardware and local operation
 
-The [generator candidate](https://ollama.com/library/qwen3:4b-instruct-2507-q4_K_M) is a roughly 2.5 GB quantized model download. [EmbeddingGemma](https://ollama.com/library/embeddinggemma) is roughly 622 MB with a 2K input window; its page requires Ollama 0.11.10 or newer. Model file size is smaller than runtime memory demand. Pin complete model digests after pulling; tags can move.
+Use native model snapshots for the two candidates above. Pin full Hugging Face commit revisions, record SHA-256 manifests for weights, tokenizer, template, pooling and config files, and mount complete snapshots read-only. Record the vLLM version, image digest per platform, backend, dtype, quantization (if any) and effective launch settings separately. A model name or serving alias is not an artifact identity.
 
-Planning estimate: a laptop with 16 GB RAM and 25–40 GB free disk may support a small CPU demo if context and concurrency are limited; 24–32 GB RAM gives more headroom. These are unverified capacity estimates, not minimum certified requirements. Use one active answer at a time, short context, and sequential embedding/generation when memory is tight.
+Recalculate memory in M1. Four billion parameters at two bytes each represent roughly **8 GB for generator weights alone** (estimate, not process RAM). Add generator KV cache, embedding weights/process, database, app and host overhead. Sequential requests do not unload resident models. Bound context, concurrency and CPU KV-cache allocation explicitly; test both services resident together. On a 16 GiB VM, leave headroom for the whole stack. If it cannot fit, try a smaller vLLM-compatible generator before freezing the study; any different quantization must be supported on the chosen backend and tested. Do not reuse an old quantized package's size estimate.
 
-For training, seek an available Linux NVIDIA GPU; about 6–8 GB VRAM is a planning target for a small detector with reduced batch size, not a guarantee. If none is available, benchmark CPU training immediately and reduce epochs/batch/input size before committing the experiment schedule. A native Mac training run may be used if measured and documented, but the requested reference AI inference deployment remains Docker. Do not promise that Docker on macOS can use Apple Metal. [PyTorch install selector](https://pytorch.org/get-started/locally/), [Ollama Docker](https://docs.ollama.com/docker), [Ollama FAQ](https://docs.ollama.com/faq).
+The inspected local shell reports Darwin arm64; Docker's CPU features, RAM allocation and actual inference speed remain unverified. Use a native-architecture Linux CPU container locally and a release-matched x86-64 CPU image on Azure. Inspect CPU instructions exposed inside each container and supported dtypes (EmbeddingGemma needs BF16 or FP32 activations, not FP16). If a compatible prebuilt image is unavailable, evaluate the official CPU Dockerfile at the pinned release. Do not assume Metal acceleration, emulation performance, NVIDIA hardware, or that every ARM machine supports the same image. [vLLM CPU installation and platform matrix](https://docs.vllm.ai/en/stable/getting_started/installation/cpu/).
 
-M1 must measure model load, one embedding batch, structured answer validity, tool-plan success, median latency and peak RAM inside the actual container environment. Proposed feasibility gate: five simple scoped questions finish without OOM and within 120 seconds each. This is a development gate, not the final quality result. If it fails, reduce context/output limits, test a smaller local model, or use available local Linux GPU hardware. Record any changed model before benchmark freeze; do not silently replace local inference with a paid/cloud endpoint.
+YOLO training stays in the PyTorch worker. An available Linux GPU or measured native Mac training path may be useful for the detector; it is separate from vLLM serving and does not prove feasibility of either model server. [PyTorch installation](https://pytorch.org/get-started/locally/).
 
-Initial download uses the internet. Runtime uses local model files, `OLLAMA_NO_CLOUD=1`, a private service network, and no externally fetched evidence. Model inference and local training need no API subscription. Hardware/cloud rental costs are unknown and no paid resource is authorized or assumed.
+M1 must measure model load, one embedding batch, structured answer validity, tool-plan success, median latency and peak RAM inside the actual Azure container environment, and verify a cached-model smoke path locally. Proposed feasibility gate: five simple scoped questions finish without OOM and within 120 seconds each on the selected primary host. This is a development gate, not the final quality result. If it fails, reduce context/output limits, test a smaller self-hosted model, or use hardware with verified access. Record any changed model before benchmark freeze; do not silently replace self-hosted inference with a managed model endpoint. Azure GPU availability is unverified; CPU feasibility and actual quota/price checks are prerequisites.
+
+Download once after checking rights. At runtime serve local snapshot **paths**, set `HF_HUB_OFFLINE=1` and `VLLM_NO_USAGE_STATS=1`, and test cold server startup with external egress blocked but internal Compose DNS/networking available. The flags do not themselves block all egress. Keep gated-download credentials out of images, runtime containers and logs. Blob backup needs network access separately; restored inference must not. [Hugging Face offline settings](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables), [vLLM usage statistics](https://docs.vllm.ai/en/stable/usage/usage_stats/). The Azure cost limits and local fallback still apply.
 
 ## Current documentation and license checks
 
@@ -54,13 +61,13 @@ Initial download uses the internet. Runtime uses local model files, `OLLAMA_NO_C
 | [Ultralytics licensing](https://www.ultralytics.com/license) | Package/weights have licensing conditions; preserve notices and check the chosen distribution against university publication plans |
 | [PostgreSQL constraints](https://www.postgresql.org/docs/16/ddl-constraints.html) | Use unique/FK/check constraints plus service validation |
 | [pgvector](https://github.com/pgvector/pgvector) | Exact cosine search is enough at this scale; pin extension and database image |
-| [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs) and [tool calling](https://docs.ollama.com/capabilities/tool-calling) | Schema validity is separate from factual validity; the application executes allowed tools |
-| [Ollama embeddings](https://docs.ollama.com/capabilities/embeddings) | Same embedding model/digest and dimension for indexing and querying |
+| [vLLM compatible server](https://docs.vllm.ai/en/stable/serving/online_serving/openai_compatible_server/) and [structured outputs](https://docs.vllm.ai/en/stable/features/structured_outputs/) | Send the JSON Schema for a plan/draft to the generation endpoint. Schema validity is separate from factual validity; the application validates the plan and executes allowed tools |
+| [vLLM embedding task and supported models](https://docs.vllm.ai/en/stable/models/pooling_models/embed/) | Use the pooling server, model-specified query/document formats and the same pinned vector dimension at index and query time |
 | [MCP Python SDK](https://py.sdk.modelcontextprotocol.io/) and [server transport](https://py.sdk.modelcontextprotocol.io/run/) | Current v2 docs use `MCPServer`; do not copy old `FastMCP` imports into v2 code |
 | [FastAPI](https://fastapi.tiangolo.com/), [Pydantic](https://docs.pydantic.dev/latest/), [Streamlit](https://docs.streamlit.io/) | Typed interfaces and small dashboard; pin tested dependencies |
 
-Record model and dataset notices in a dependency/source inventory during M1/M2. The candidate generator page lists Apache 2.0; EmbeddingGemma has its own model terms and must be checked separately. Dataset redistribution rights remain unresolved. Do not infer universal permission from research use or a public download URL.
+Record model terms/private-hosting and copy rights in **M1 before downloading weights**, including generator, embeddings and pretrained detector and any required user acceptance. The candidate generator card lists Apache 2.0. EmbeddingGemma is gated: the user must accept Google's terms and obtain download access before staging it. Keep access credentials out of the serving environment. Audit dataset acquisition/private-copy rights in **M2 before acquisition/cloud upload**; redistribution remains a separate publication check. Do not infer universal permission from research use or a public download URL.
 
 ## Deliberately excluded from the November build
 
-Airflow/Prefect, Kafka, Spark, Kubernetes, Redis/Celery, a dedicated MLflow service, MinIO, hosted LLM APIs, a second vector database, detector architecture research, LLM fine-tuning, multi-agent orchestration and production multi-user access are unnecessary for the defined experiments. MCP and RAG are **included**, not stretch features. A general agent platform would only be justified by a concrete requirement that this five-tool agent cannot satisfy; none is currently present.
+Airflow/Prefect, Kafka, Spark, Kubernetes/AKS, Redis/Celery, a dedicated MLflow/Azure ML service, Data Factory, managed PostgreSQL, Azure AI Search, MinIO, hosted LLM APIs, a second vector database, detector architecture research, LLM fine-tuning, multi-agent orchestration and production multi-user access are unnecessary for the defined experiments. MCP and RAG are **included**, not stretch features. A general agent platform would only be justified by a concrete requirement that this five-tool agent cannot satisfy; none is currently present. GitHub Pro/Actions are selected development support; Codespaces is a setup contingency and Copilot Student a personal aid, neither a research runtime dependency. Do not add other Pack vendors solely for promotional credit.

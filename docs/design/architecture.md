@@ -1,10 +1,10 @@
 # System architecture
 
-This is the implementation contract for a local research prototype. Decisions are proposed, not deployed. The primary research component is an evidence-grounded LLM agent; the image pipeline produces reliable data for its analysis. See [evaluation](../plan/evaluation-and-thesis.md) for how each claim will be tested.
+This is the implementation contract for a self-hosted research prototype. Decisions are proposed, not deployed. Updated 13 November 2026: the same Docker system will run locally and on one on-demand Azure VM, with private Blob backups and a verified local restore path. See the [Azure/student-services plan](azure-and-student-services.md) for deployment, credit limits and the separate twelve-month operating horizon. The primary research component is an evidence-grounded LLM agent; the image pipeline produces reliable data for its analysis. See [evaluation](../plan/evaluation-and-thesis.md) for how each claim will be tested.
 
 ## Components and flow
 
-Use one Python codebase with separate processes for the API/agent, worker, MCP server and UI. These share domain contracts, not duplicate business logic. PostgreSQL stores metadata and results; a local mounted directory stores immutable images, manifests and checkpoints. pgvector adds document embeddings to the same database. Ollama serves both local generation and embedding models.
+Use one Python codebase with separate processes for the API/agent, worker, MCP server and UI. These share domain contracts, not duplicate business logic. PostgreSQL stores metadata and results; a directory mounted on the selected host's persistent disk stores immutable images, manifests and checkpoints. pgvector adds document embeddings to the same database. Two private vLLM services serve the models: one generates tool plans and answers; the other embeds text for retrieval. In this document, “local” model/service means inside our deployment, which may run on an Azure VM; it does not imply cloud-stored data stays on the laptop.
 
 ```mermaid
 flowchart TD
@@ -16,13 +16,16 @@ flowchart TD
     F --> C
     F --> G[Batch inference and result validation]
     G --> D
-    H[Approved documentation and model cards] --> I[Versioned chunking and local embeddings]
+    H[Approved documentation and model cards] --> I[Worker chunks and indexes documents]
+    I --> V[vLLM embedding server]
+    V -->|Document vectors to indexer| I
     I --> J[(pgvector document chunks)]
     K[Streamlit dashboard and questions] --> L[FastAPI and bounded agent]
-    L --> M[Local Ollama generator]
+    L --> M[vLLM generation server]
     L --> N[MCP client]
     N --> O[Read-only MCP tool server]
     O --> D
+    O -->|Embed search query| V
     O --> J
     O --> P[Read-only results with snapshot IDs]
     P --> L
@@ -139,7 +142,7 @@ MCP is a required, small integration component because the local agent needs a t
 
 Tool descriptions are a contract, not an instruction channel from retrieved content. Use parameterized allowlisted queries, row/time limits and read-only credentials. There is no generic `execute_sql`, shell, URL fetch, label edit or retraining tool. API scope IDs come from valid UI selections; ask for clarification when the requested run is ambiguous. Save selected tools and validated arguments. Set a default maximum of three tool calls, a 120-second total question timeout, one repair attempt and an output limit of roughly 500 tokens; tune latency budgets on development hardware only.
 
-Agent loop: validate question/scope → API captures snapshot → ask local LLM for structured tool plan → validate tool names/arguments → read-only MCP calls → API persists evidence → local structured answer → deterministic checks → optional repair using the same evidence → API persists audit → render. A JSON plan is sufficient if native tool-call output is unreliable. This still uses an LLM to choose tools and compose answers; it is not a fixed canned report.
+Agent loop: validate question/scope → API captures snapshot → ask local LLM for structured tool plan → validate tool names/arguments → read-only MCP calls → API persists evidence → local structured answer → deterministic checks → optional repair using the same evidence → API persists audit → render. Use a JSON Schema tool plan over chat completions. The API parses it into the existing Pydantic contract and executes only allowed MCP calls; a native model-specific tool parser is unnecessary. This still uses an LLM to choose tools and compose answers; it is not a fixed canned report.
 
 ### Metric evidence and answer schema
 
@@ -155,26 +158,33 @@ Document claims contain chunk IDs and exact supporting excerpts. Mechanical chec
 
 Start with 10–20 short approved documents: dataset factsheet, class glossary, metric definitions, quality rules, pipeline guide, model card and limitations. Author concise source-linked notes where full-paper redistribution is inappropriate. Do not invent factory manuals. Exclude benchmark questions, gold answers, grading files and generated answers from the retrieval corpus.
 
-Use section-aware chunks of 250–400 tokens, about 40-token overlap, explicit title/section metadata, and stable document/chunk hashes. Enforce the embedding model's input limit. Embed documents and questions with the same pinned local model and recorded query/document prefixes. Store vectors in PostgreSQL/pgvector; use exact cosine search for this small collection and top-4 retrieval. Keep embedding dimensions fixed per index version and rebuild on model/dimension changes. Similarity thresholds and chunk choices are tuned only on development questions.
+Use section-aware chunks of 250–400 tokens, about 40-token overlap, explicit title/section metadata, and stable document/chunk hashes. Enforce the embedding model's input limit. Embed documents and questions with the same pinned local model and recorded query/document prefixes. Store vectors in PostgreSQL/pgvector; use exact cosine search for this small collection and top-4 retrieval. For EmbeddingGemma, start with the native 768 dimensions and apply the retrieval query or titled-document format exactly once; the 2,048-token limit includes that format and special tokens. Record model revision, pooling, normalization, prefixes, tokenizer and dimension in each index manifest. If the embedding contract changes, publish a rebuilt index; reject mismatched query/index profiles instead of mixing vectors. Similarity thresholds and chunk choices are tuned only on development questions.
 
 Quantitative answers must use SQL evidence; prose retrieval is not the source of live counts. Document RAG supplies definitions and limitations. Retrieval filters corpus version and selected dataset/model applicability; results expose unknown applicability. Empty retrieval produces an abstention, not model-memory citations. Ingest documents offline through the CLI, with an explicit source allowlist. Treat retrieved text and filenames as data, not agent instructions.
 
-## Local Docker deployment
+## Docker deployment: local and Azure
 
 | Compose service | Responsibility | Persistence/network |
 |---|---|---|
 | `db` | PostgreSQL with pgvector | Named database volume; internal port only |
-| `ollama` | Local generator and embedding inference | Model-cache volume; internal port; `OLLAMA_NO_CLOUD=1` |
+| `vllm-gen` | One instruction model using its pinned chat template; API calls `POST /v1/chat/completions` with plan/answer JSON Schema | Internal `http://vllm-gen:8000/v1`; mounted, pinned generator snapshot |
+| `vllm-embed` | One embedding model served with `--runner pooling`; indexer embeds documents, MCP retrieval embeds queries via `POST /v1/embeddings` | Internal `http://vllm-embed:8000/v1`; mounted, pinned embedding snapshot |
 | `api` | FastAPI, agent, snapshot/evidence persistence and answer audit | Restricted application write role and artifact volume; bind host API to 127.0.0.1 |
 | `mcp` | Five read-only tools | Internal Streamable HTTP; read-only DB role and artifact access |
 | `ui` | Streamlit dashboard/chat/evidence | Bind host UI to 127.0.0.1 |
 | `worker` | One-off ingest/index/train/infer/evaluate commands | On-demand profile; write role and artifact volume |
 
-All are built from one application image except PostgreSQL and Ollama. Separate permissions by process. No Kafka, Redis, Airflow, Kubernetes, additional vector database or public cloud is needed. Local files are the chosen object store; implement a narrow storage interface so S3/MinIO can be added later only if warranted.
+The worker, API, MCP and UI use the application image. The two model services use a pinned vLLM image for their host and load different checkpoints. PostgreSQL uses its own image. Separate permissions by process. Azure uses this same Compose layout on one Linux VM; UI/API localhost bindings are reached through an SSH tunnel, and internal services are never published to the internet. Keep database/artifact/model volumes on persistent disk. No Kafka, Redis, Airflow, Kubernetes or additional vector database is required.
+
+The shared application image is shared by services **on a host**. If the local host is ARM and Azure is x86, use the same source/release with tested platform-specific images and record both digests/dependency profiles; cache and smoke-test each host's images. Final B1/B2/P runs stay on one hardware/image profile. Check model terms in M1 before weights are downloaded, and dataset terms in M2 before acquisition/cloud copying.
+
+Host-local files remain the runtime artifact store. Add a narrow Azure Blob backup/restore adapter, invoked explicitly outside the LLM tool interface. It preserves logical URIs and hashes rather than treating Blob as a mounted filesystem or a live replacement for database transactions. Pause writers for a consistent database dump plus referenced-artifact manifest; upload to a unique prefix and publish its completion marker last. Restore and verify in a fresh local environment. The detailed identity, access, interruption and budget contracts are in the [Azure plan](azure-and-student-services.md). This cloud adapter is required; Azure provisioning/backup steps remain manual user actions under the guided workflow.
 
 Initial image/model downloads need internet. After caching, demonstrate operation with external network access disabled while preserving the internal Compose network. Health checks and migrations must complete before dependent processes start; startup is not successful merely because containers exist. Persist PostgreSQL, raw/artifact data and model cache separately; back up the database plus referenced artifacts and perform a restore smoke test.
 
-Standard Ollama containers on Docker Desktop for macOS run without Apple GPU acceleration; CPU-only local Docker is the baseline. Linux NVIDIA acceleration requires a compatible driver and NVIDIA Container Toolkit. This is a feasibility constraint, not a reason to silently move inference to a hosted API. [Ollama Docker](https://docs.ollama.com/docker), [Ollama FAQ](https://docs.ollama.com/faq).
+Use a private HTTP adapter with separate base URLs and stable served-model aliases; it must not derive a provider URL from user input or fall back to an external host. At startup, check the expected alias via `GET /v1/models` on each server, then test the actual workload: a schema-valid chat response and a finite vector of the expected width. A missing snapshot, failed schema, unavailable service or timeout produces an explicit request failure. Model serving never acquires MCP write or tool-execution privileges. See [stack and hardware checks](technology-stack.md) for CPU images, cache limits and offline startup.
+
+An Azure student credit is not proof of GPU quota or sufficient CPU speed. M1 measures actual VM and local fallback behavior, price and deallocation. A single host is adequate for this thesis, but is not a high-availability design. Keep a verified local archive for subscription loss; after the defense remove idle compute resources only after the user verifies recovery. Twelve-month availability means retained/recreatable work and occasional sessions, not a continuously running VM.
 
 ## Planned source layout
 
@@ -188,7 +198,7 @@ src/visionq/
   mcp_server/       protocol adapter around analytics and retrieval
   api/              HTTP routes and request validation
   ui/               dashboard, overlays and evidence browser
-  storage/          database models, migrations integration, file storage
+  storage/          database models, migrations, file store, Blob backup adapter
   cli.py
 configs/            dataset, training, agent, retrieval, quality rules
 migrations/         Alembic schema history
@@ -196,7 +206,8 @@ tests/              unit, integration, end-to-end fixtures
 benchmarks/         dev questions; protected frozen test specifications
 data/               ignored raw, derived, manifests, knowledge files
 artifacts/          ignored checkpoints, runs, evidence, figures, reports
-compose.yaml        local deployment
+compose.yaml        shared local/Azure deployment; environment-specific settings
+.github/workflows/  lightweight CI; no training or automatic cloud deployment
 pyproject.toml      package and dependency declarations
 uv.lock             tested exact dependencies
 docs/               this documentation

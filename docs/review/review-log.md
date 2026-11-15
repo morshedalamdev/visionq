@@ -54,3 +54,25 @@ Added WORKFLOW.md and TASK_LOG.md, updated root AGENTS.md and PROJECT_STATE, and
 Amendment validation: **PASS**, independently rechecked by `workflow_consistency` against the actual revised files. Teaching/section assembly, manual application/testing, strict task gates, sequential dates, the November 14 freeze, M4/M5 UI integration and handoff records are consistent. Applied its final wording suggestion so root AGENTS identifies the designated Architecture chat without assigning that role to every module chat.
 
 Structural validation passed for all 12 Markdown files: no broken local links or unmatched fences, six modules with 22 unique task IDs matching TASK_LOG. `git diff --check` passed. No source implementation, dependency installation or application test was performed, and no task gate was marked passed.
+
+## Azure and twelve-month usage amendment on 13 November 2026
+
+User request: use the newly activated Azure student subscription and relevant GitHub Student Pack services, with a twelve-month usage horizon. The user subsequently reconfirmed project/report completion by November 30, December rehearsal and a defense around December's second week. Full-time priority was expressed; exact daily capacity and university dates remain unknown.
+
+Evidence: read-only Brave inspection showed $100/$100 credit, expiry November 13, 2027 and $0 November cost. No quotas, prices or GitHub account entitlements were verified. Two research agents (`azure_research`, `student_pack_research`) checked current primary documentation; their findings inform the source-linked [Azure/student-services plan](../design/azure-and-student-services.md).
+
+Design change: one on-demand Azure VM running the existing Docker stack, private Blob backups and a verified local fallback. At the time of this November 13 review, Ollama was the selected self-hosted server; core SQL/RAG/MCP/verifier and research comparisons remain intact. GitHub repository/Actions are selected support, with other Pack offers gated by an actual need. The $100 is allocated over the whole year; post-defense idle compute/disk cleanup follows verified recovery. No resources or accounts were changed.
+
+Rebased the elapsed calendar to a conditional November 13–30 sequence, preserving six modules/22 tasks and every required gate. Added Azure checks inside existing tasks, kept the section-by-section/manual implementation workflow, and separated December rehearsal and later maintenance from thesis completion. The original estimate plus bounded cloud additions is 152–196 focused hours before unmeasured learning/retry time; this is explicitly a high-risk forecast with no dependable buffer.
+
+Independent amendment review, round 1: **REVISE** from `azure_plan_review`. It identified two narrow gaps: an ARM laptop and x86 VM cannot be assumed to share a platform image digest, and model-term checks must precede M1 downloads rather than wait for the M2 dataset audit. Corrected the Azure plan, architecture, stack, M1 task gates and evaluation wording: record/test platform-specific images from the same source/release, keep final B1/B2/P on one fixed host/image profile, and check model terms in M1 before downloads while dataset rights remain in M2 before acquisition/cloud upload.
+
+Round 2: **PASS**. The same independent reviewer re-read the corrected files and verified both findings resolved. It confirmed that the year-long credit allocation, post-defense cleanup, November 30 deadline and mandatory task gates remain consistent. This approves documentation coherence only; deployment feasibility, runtime performance and implementation completion remain unverified.
+
+Initial structural checks passed: 13 Markdown files, valid local links and balanced fences; six modules with 22 unique tasks matching TASK_LOG; all task statuses still `not_started`; `git diff --check` passed. The original proposal SHA-256 remains `e8cc2cb483b061e35ef693ca6611f2606fe63b6d166cb7599068c04e12476ac9`. The pre-existing `.DS_Store` change was left untouched. No application tests, provisioning or experiments were run.
+
+## vLLM runtime decision — 15 November 2026
+
+The user selected vLLM in place of Ollama. This supersedes the serving choice recorded above. The active design now has separate private chat and embedding endpoints, revision-pinned native snapshots and a new two-service feasibility check inside M1.T3. The current Azure budget, local offline restart, research comparisons and manual task gates remain binding. No model was downloaded, cloud resource provisioned or application test run for this amendment.
+
+Independent review by `vllm_plan_review`: **PASS**. The reviewer checked the architecture, stack, Azure plan, evaluation protocol and handoff against the M1.T3 checks. This was a documentation review; hardware fit, response times and credit use remain unmeasured. All 13 Markdown files passed local link/fence checks; the six modules and 22 unadvanced task gates still match.

@@ -1,10 +1,10 @@
 # VisionQ thesis project documentation
 
-Last updated: 21 October 2026. Status: original design passed two review rounds; the later user-led teaching workflow also passed an independent consistency review. No application implementation task has passed. Git has since been initialized and must be preserved.
+Last updated: **15 November 2026**. Original design and teaching workflow passed independent reviews; the Azure amendment also **passed after correction and recheck**, documented in the [review log](review/review-log.md). No application implementation task has passed. Preserve existing Git and user changes.
 
-VisionQ will combine an industrial image data pipeline, a small supervised defect detector, and a local LLM agent that answers questions using database evidence and retrieved documents. The LLM is a main research contribution. RAG and a bounded MCP tool server are included because they serve that contribution. All AI inference will run locally in Docker in the reference deployment.
+VisionQ will combine an industrial image data pipeline, a small supervised defect detector, and a self-hosted LLM agent that answers questions using database evidence and retrieved documents. The LLM is a main research contribution; RAG and a bounded MCP tool server support it. The reference Docker stack will run on an on-demand Azure VM with private Blob backups and a verified local fallback. vLLM serves Qwen for generation and EmbeddingGemma for document retrieval in separate private containers. M1 must verify that both models fit and work together on Azure and can restart offline on the local host.
 
-The user requires the **project and written report to be completed within November 2026**, ahead of a December defense. The working final deadline is 30 November; the internal feature freeze is 20 November and submission-ready target is 25 November. The exact university submission date and available hardware remain unknown.
+The user reconfirmed **project/report completion by 30 November 2026**, rehearsal in December and defense around December's second week. The updated schedule is conditional on full-time progress and every required gate passing; it supersedes the elapsed October plan. Azure operation/retention is planned separately through **13 November 2027**. Portal observation confirmed $100 available for that entire period, not per month. Exact university dates, hardware, Azure capacity/prices and GitHub benefit activation still need checking.
 
 ## Read in this order
 
@@ -14,6 +14,7 @@ The user requires the **project and written report to be completed within Novemb
 | [Dataset specification](research/dataset-specification.md) | NEU-DET facts, acquisition checks, annotation policy, splits and quality rules |
 | [Architecture](design/architecture.md) | Components, data flow, storage contracts, local agent, MCP, RAG and deployment |
 | [Technology stack](design/technology-stack.md) | Required tools, model candidates, hardware assumptions and version policy |
+| [Azure and student services](design/azure-and-student-services.md) | Verified credit, same-stack deployment, private backups, costs, GitHub benefits and twelve-month operation |
 | [Development plan](plan/development-plan.md) | Six modules with 22 tasks, dependencies, acceptance criteria and November schedule |
 | [Evaluation and thesis](plan/evaluation-and-thesis.md) | Experiments, LLM baselines, metrics, thesis outline and defense demonstration |
 | [Guided workflow and module kickoff](agent/WORKFLOW.md) | User implements; Codex teaches each file section, supplies code/instructions and reviews each task's test gate |
@@ -35,6 +36,7 @@ docs/
   design/
     architecture.md
     technology-stack.md
+    azure-and-student-services.md
   plan/
     development-plan.md
     evaluation-and-thesis.md
@@ -48,7 +50,7 @@ docs/
 
 ## Project boundary
 
-The required result is a reproducible local research prototype, an evaluated LLM system, and a completed thesis report. It does not require a new detector architecture or a general agent platform. A single bounded agent is sufficient: it selects tools, obtains evidence, drafts an answer, and verifies its claims. Expand only if an experiment exposes a concrete need that cannot be met by that design.
+The required result is a reproducible self-hosted research prototype with Azure deployment and local recovery, an evaluated LLM system, and a completed thesis report. It does not require a new detector architecture or a general agent platform. A single bounded agent selects tools, obtains evidence, drafts an answer and verifies its claims. Expand only if an experiment exposes a concrete unmet need. Azure eligibility/cost failures require explicit replanning; the credit is not a promise of GPU availability or continuous year-long hosting.
 
 The detector predicts **known defect classes and bounding boxes**. The agent explains recorded results and documented limitations; it does not certify products, infer factory root causes, or turn missing timestamps into production trends. Proposed targets throughout these documents are acceptance goals, not measured results.
 

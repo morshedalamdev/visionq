@@ -1,6 +1,6 @@
 # Guided implementation and chat workflow
 
-Effective 21 October 2026. This is the user's chosen working method and supersedes the earlier autonomous implementation/overlapping-module instructions. The user writes/applies the project and runs it; Codex teaches, supplies code sections, explains implementation and reviews test evidence.
+Effective 21 October 2026; Azure continuation added 13 November. This is the user's chosen working method and supersedes the earlier autonomous implementation/overlapping-module instructions. The user writes/applies the project and runs it; Codex teaches, supplies code sections, explains implementation and reviews test evidence.
 
 ## Roles and chat ownership
 
@@ -13,6 +13,8 @@ Effective 21 October 2026. This is the user's chosen working method and supersed
 Module chats inspect the repository but are **read-only by default**. All implementation code, explanations, commands and proposed handoff edits appear directly in chat. Do not substitute a generated file/patch download for the instructional content. The user applies source, configuration, test and progress-document changes. Explicit delegation can authorize a specific action later; it does not silently switch the entire project to autonomous implementation.
 
 Architecture/planning edits are allowed when the user asks this Architecture chat to update the plan. That authorization does not extend to building the application. Do not create or message other chats automatically. The user carries the module handoff to this chat when review or a design decision is needed and opens the next module chat.
+
+Azure is now a selected deployment target under the [Azure/student-services plan](../design/azure-and-student-services.md). Teach portal/CLI configuration with the same what/why, exact settings, cost estimate and check evidence as code changes. The user provisions resources and applies access settings unless explicitly delegated. Planning authorization does not authorize deployment, credit consumption, subscriptions or benefit activation. Never request credentials in chat. Keep the local Docker restore path and self-hosted vLLM model identities intact. M1.T3 evidence must cover both generation and embedding services. Complete the thesis by November 30, rehearse in December, and track post-defense cloud retention separately from thesis task completion.
 
 ## What was learned from IRM
 
@@ -124,6 +126,8 @@ Copy this into the selected new module chat, filling in the module and last pass
 You are my VisionQ Module [Mx — name] guide. I will implement the work myself.
 Read AGENTS.md, docs/agent/WORKFLOW.md, docs/agent/PROJECT_STATE.md,
 docs/agent/TASK_LOG.md, and the selected module in docs/plan/development-plan.md.
+Read docs/design/azure-and-student-services.md for Azure costs, deployment and
+local-fallback requirements; no provisioning is authorized by this kickoff.
 Inspect the current repository and only the relevant design/implementation.
 
 Work on this module only, one task at a time. The previous gate is [ID/evidence].
