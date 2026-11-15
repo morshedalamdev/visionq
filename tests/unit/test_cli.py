@@ -6,6 +6,7 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 
+
 def run_cli(directory: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "worker", *args],
@@ -15,6 +16,7 @@ def run_cli(directory: Path, *args: str) -> subprocess.CompletedProcess[str]:
         check=False,
         timeout=15,
     )
+
 
 def test_info_works_outside_repository(tmp_path: Path) -> None:
     result = run_cli(tmp_path, "info")
@@ -26,11 +28,13 @@ def test_info_works_outside_repository(tmp_path: Path) -> None:
     assert payload["python"].split(".")[:2] == ["3", "11"]
     assert payload["platform"]
 
+
 def test_help_lists_info_command(tmp_path: Path) -> None:
     result = run_cli(tmp_path, "--help")
 
     assert result.returncode == 0, result.stderr
     assert "info" in result.stdout
+
 
 def test_unknown_command_is_rejected(tmp_path: Path) -> None:
     result = run_cli(tmp_path, "not-a-command")

@@ -14,3 +14,13 @@
 # Local operating-system and frontend build inputs
 .DS_Store
 node_modules/
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+build/
+dist/
