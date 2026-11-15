@@ -1,8 +1,16 @@
-AGENTS.md
+# Local instructions
+/AGENTS.md
+/dataset/
+/docs/agent/
+/docs/review/
 
-/dataset
+# Private runtime configuration and generated research material
+.env
+.env.*
+!.env.example
+/data/
+/artifacts/
 
-/docs/agent
-/docs/plan
-/docs/research
-/docs/review
+# Local operating-system and frontend build inputs
+.DS_Store
+node_modules/
