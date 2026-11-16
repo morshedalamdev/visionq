@@ -24,3 +24,19 @@
 
 For each source record the date, publisher URL, revision or version, intended
 use, applicable terms, access result, required notices and unresolved questions.
+
+### Foundation dependency evidence — 15 November 2026
+
+Installed distribution metadata in the project environment declared:
+
+- MIT: annotated-doc 0.0.6, annotated-types 0.8.0, iniconfig 2.3.1,
+  markdown-it-py 4.3.0, mdurl 0.1.2, pluggy 1.7.0, pydantic 2.14.3,
+  pydantic_core 2.50.4, pytest 9.2.0, rich 15.0.0, ruff 0.17.5,
+  typer 0.29.1, typing-inspection 0.4.5.
+- BSD-2-Clause: Pygments 2.21.0.
+- Apache-2.0 OR BSD-2-Clause: packaging 26.3.
+- ISC: shellingham 1.5.4.
+- PSF-2.0: typing_extensions 4.16.0.
+- Build backend: hatchling 1.17.0, pinned in pyproject.toml.
+- Local distribution: visionq 0.1.0. Its installed metadata does not
+  currently declare a project license.

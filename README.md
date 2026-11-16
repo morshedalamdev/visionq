@@ -1,8 +1,12 @@
 # VisionQ
 
-VisionQ is a research project for industrial defect detection and evidence-grounded
-question answering. The intended product is a self-deployable application with
-a public React dashboard that accepts live questions at any time.
+VisionQ is an industrial visual defect detection research project. The planned
+React dashboard will let users upload an inspection image, see where the detector
+finds suspected defects, and optionally ask questions about the recorded results.
+Public visitors will be able to submit live questions at any time.
+
+NEU-DET is the initial dataset for evaluating the detector. The project will
+also be open source, with instructions for running your own copy using Docker.
 
 The foundation provides an installable Python CLI. The worker source is in
 `src/worker/`. The dashboard, detector, model services and public deployment
