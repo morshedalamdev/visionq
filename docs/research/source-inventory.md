@@ -6,8 +6,18 @@
 - Use pyproject.toml for direct declarations and uv.lock for resolved versions.
 - Record the installed metadata and upstream license evidence under V06.
 - Hatchling is an isolated build dependency. Record its pinned version separately.
-- VisionQ-owned source license: decision pending. Record the chosen license,
-  compatibility review and publication date before describing a release as open source.
+- 2026-11-16 — VisionQ-owned source: AGPL-3.0-only, selected by the project
+  owner for the open-source Docker application. The license text is in LICENSE.
+- Qwen3-4B-Instruct-2507: use the Apache-2.0 generator for self-hosted inference.
+  If redistributing it, include its license, retain applicable notices, and
+  identify modified files. https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507/blob/main/LICENSE
+- EmbeddingGemma: use for local document and query embeddings under the Gemma
+  Terms of Use. For a public hosted service, provide the terms and notice of
+  the use restrictions and include those restrictions in the applicable user
+  agreement. Configuration-file access is recorded below. https://ai.google.dev/gemma/terms
+- Ultralytics YOLO11n: use the publisher's AGPL-3.0 route for the detector.
+  When distributing or serving the covered application, make the corresponding
+  source available as required. https://www.ultralytics.com/license
 
 ## Research inputs
 
@@ -24,6 +34,11 @@
 
 For each source record the date, publisher URL, revision or version, intended
 use, applicable terms, access result, required notices and unresolved questions.
+
+- 2026-11-16 — EmbeddingGemma configuration access confirmed by user download.
+  Local config.json parsed successfully (1,488 bytes, Gemma3TextModel).
+  SHA-256: 8f863f76e2d9c710cc833dc92efa898c9adfd41031c786507cc6b0e49c2e3e68.
+  Exact upstream revision match remains unverified.
 
 ### Foundation dependency evidence — 15 November 2026
 

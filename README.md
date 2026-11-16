@@ -26,3 +26,9 @@ uv run --locked python -m pytest -q
 
 The two info commands should report the same application, version, interpreter
 and platform. This foundation requires no model weights, dataset or cloud account.
+
+## License
+
+VisionQ's original source code is licensed under the
+[GNU Affero General Public License, version 3 only](LICENSE).
+Third-party software, model weights, and datasets retain their respective licenses.
