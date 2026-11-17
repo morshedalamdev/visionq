@@ -1,0 +1,52 @@
+name: Foundation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.8"
+          enable-cache: false
+      - name: Locked CLI, style and unit tests
+        run: |
+          uv python install
+          uv sync --locked
+          uv run --locked visionq info > "$RUNNER_TEMP/script.json"
+          uv run --locked python -m worker info > "$RUNNER_TEMP/module.json"
+          diff -u "$RUNNER_TEMP/script.json" "$RUNNER_TEMP/module.json"
+          cat "$RUNNER_TEMP/script.json"
+          uv run --locked ruff check src tests migrations
+          uv run --locked ruff format --check src tests migrations
+          uv run --locked python -m pytest -q
+
+      - name: PostgreSQL migration and fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+          export ARTIFACT_DIR="$RUNNER_TEMP/visionq-artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+          dc() { docker compose --env-file .env.example "$@"; }
+          dc config --quiet
+          dc build worker
+          dc up -d --wait db
+          dc run --rm worker alembic upgrade head
+          dc run --rm worker alembic current
+          dc run --rm worker python -m worker.fixture seed
+          dc run --rm worker python -m worker.fixture verify
+          dc exec -T db psql -X -U visionq -d visionq -Atc \
+            "SELECT extversion FROM pg_extension WHERE extname='vector'"

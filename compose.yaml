@@ -1,0 +1,46 @@
+services:
+  db:
+    image: ${PG_IMAGE:?set PG_IMAGE}
+    environment:
+      POSTGRES_DB: visionq
+      POSTGRES_USER: visionq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a private database password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          PGPASSWORD="$$POSTGRES_PASSWORD"
+          psql -X -h 127.0.0.1 -U visionq -d visionq
+          -v ON_ERROR_STOP=1 -Atqc 'SELECT 1' | grep -qx 1
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+  worker:
+    profiles: ["tools"]
+    build: .
+    image: visionq-m1t2-worker:local
+    pull_policy: never
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a private database password}
+      ARTIFACT_ROOT: /artifacts
+      VLLM_GENERATION_BASE_URL: ${VLLM_GENERATION_BASE_URL:?set generation URL}
+      VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:?set embedding URL}
+    volumes:
+      - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  backend:
+    internal: true
