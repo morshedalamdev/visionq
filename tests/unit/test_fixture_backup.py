@@ -1,8 +1,17 @@
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
 
-from worker.backup import COMPLETE, IMAGE_MEMBER, MEMBERS, Directory, backup, restore
+from worker.backup import (
+    COMPLETE,
+    IMAGE_MEMBER,
+    MEMBERS,
+    Azure,
+    Directory,
+    backup,
+    restore,
+)
 from worker.fixture import PIXELS, SHA, URI, store_image
 
 
@@ -74,3 +83,17 @@ def test_corrupt_backup_is_rejected(tmp_path, source, member):
     with pytest.raises(ValueError, match="checksum mismatch"):
         restore(store, key, tmp_path / "out")
     assert not (tmp_path / "out").exists()
+
+
+def test_azure_adapter_writes_create_only_and_reads_same_key():
+    adapter = Azure.__new__(Azure)
+    adapter.container = Mock()
+    key = "m1t2/test/db.dump"
+    data = b"PGDMP-test"
+    adapter.container.download_blob.return_value.readall.return_value = data
+
+    adapter.put(key, data)
+    assert adapter.get(key) == data
+
+    adapter.container.upload_blob.assert_called_once_with(key, data, overwrite=False)
+    adapter.container.download_blob.assert_called_once_with(key)

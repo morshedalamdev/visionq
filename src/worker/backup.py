@@ -57,20 +57,18 @@ class Azure:
             credential=credential,
         )
 
+    def put(self, key: str, data: bytes) -> None:
+        self.container.upload_blob(key, data, overwrite=False)
 
-def put(self, key: str, data: bytes) -> None:
-    self.container.upload_blob(key, data, overwrite=False)
+    def get(self, key: str) -> bytes:
+        from azure.core.exceptions import ResourceNotFoundError
 
-
-def get(self, key: str) -> bytes:
-    from azure.core.exceptions import ResourceNotFoundError
-
-    try:
-        return self.container.download_blob(key).readall()
-    except ResourceNotFoundError as exc:
-        if exc.error_code == "BlobNotFound":
-            raise FileNotFoundError(key) from exc
-        raise
+        try:
+            return self.container.download_blob(key).readall()
+        except ResourceNotFoundError as exc:
+            if exc.error_code == "BlobNotFound":
+                raise FileNotFoundError(key) from exc
+            raise
 
 
 def prefix(backup_id: str) -> str:

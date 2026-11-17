@@ -7,6 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 from uuid import UUID
+
 from sqlalchemy import text
 
 from worker.db import database
@@ -63,10 +64,16 @@ def inspect(root: Path, *, seed: bool = False) -> dict:
                 """),
                 expected,
             )
-        row = connection.execute(text("""
+        row = (
+            connection.execute(
+                text("""
             SELECT inspection_id::text AS inspection_id, version, artifact_uri, byte_count, sha256
             FROM inspection_fixture    
-        """)).mappings().one()
+        """)
+            )
+            .mappings()
+            .one()
+        )
         if dict(row) != expected:
             raise ValueError("fixture row differs from expected identity or version")
         data = (root / row["artifact_uri"]).read_bytes()
