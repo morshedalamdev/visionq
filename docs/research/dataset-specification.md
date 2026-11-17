@@ -1,13 +1,13 @@
 # Dataset specification and quality contract
 
-Status: source-informed specification; the dataset archive has **not** been downloaded or audited. Complete the observed column during M2. See [literature P2 and P5](topic-and-literature.md) for citations and interpretation.
+Status on 17 November: the extracted `dataset/NEU-DET/IMAGES/` and `dataset/NEU-DET/ANNOTATIONS/` directories are present on the Mac. This establishes local availability only. **M2.T1** must inventory the actual copy, record its provenance and complete the applicable factsheet entries. Keep later annotation, quality and split findings with their respective task gates. See [literature P2 and P5](topic-and-literature.md) for citations and interpretation.
 
 ## Dataset factsheet
 
 | Property | Published description or project policy | Observed archive value |
 |---|---|---|
-| Source | [Northeastern University dataset page](https://faculty.neu.edu.cn/songkechen/zh_CN/zdylm/263270/list/index.htm) | Not downloaded |
-| Intended archive | NEU-DET, not image-only NEU-CLS | Pending |
+| Source | [Northeastern University dataset page](https://faculty.neu.edu.cn/songkechen/zh_CN/zdylm/263270/list/index.htm) | Local tree present; acquisition URL/date, original package and notices not yet verified |
+| Intended collection | NEU-DET, not image-only NEU-CLS | Local directories exist separately; inventory NEU-DET only |
 | Task | Supervised known-defect detection with bounding boxes | Pending sample audit |
 | Images | Published collection: 1,800 grayscale images, 200 × 200 pixels | Pending count, dimensions and channel scan |
 | Composition | Published: 300 images per source category; six categories | Pending image and box counts per class |
@@ -17,7 +17,7 @@ Status: source-informed specification; the dataset archive has **not** been down
 | Rights | Official page requests citation; explicit redistribution terms not established | Inspect bundled notices and record terms |
 | Original paper split | 1,260 train / 540 test | Check for supplied split manifests |
 | Project split | Grouped, approximately 70% train / 15% validation / 15% test | Publish actual counts after duplicate audit |
-| Collection provenance | Use source description; unknown details stay unknown | Record download URL, date and archive SHA-256 |
+| Collection provenance | Use source description; unknown details stay unknown | If the original archive is available, record its SHA-256; otherwise record that gap and hash a deterministic inventory of the extracted files separately |
 
 Do not upload source images/labels to Git or redistribute the archive by default. Record the source and acquisition instructions. If use terms are unclear, obtain supervisor guidance before distributing data; this does not prevent building the framework on tiny self-created fixtures.
 

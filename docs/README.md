@@ -1,10 +1,10 @@
 # VisionQ thesis project documentation
 
-Last updated: **15 November 2026**. Original design and teaching workflow passed independent reviews; the Azure amendment also **passed after correction and recheck**, documented in the [review log](review/review-log.md). No application implementation task has passed. Preserve existing Git and user changes.
+Last updated: **17 November 2026**. **Next: M2 — Dataset Ingestion and Validation, starting with M2.T1 on the Mac.** M1.T1 is complete under its recorded scope; M1.T2 passed all eight checks at `81f563a`. M1.T3 is deferred and the M1 integration gate remains open. See the [development sequence](plan/development-plan.md) and [task evidence](agent/TASK_LOG.md).
 
-VisionQ will combine an industrial image data pipeline, a small supervised defect detector, and a self-hosted LLM agent that answers questions using database evidence and retrieved documents. The LLM is a main research contribution; RAG and a bounded MCP tool server support it. The reference Docker stack will run on an on-demand Azure VM with private Blob backups and a verified local fallback. vLLM serves Qwen for generation and EmbeddingGemma for document retrieval in separate private containers. M1 must verify that both models fit and work together on Azure and can restart offline on the local host.
+VisionQ will combine an industrial image data pipeline, a small supervised defect detector, and a self-hosted LLM agent that answers questions using database evidence and retrieved documents. The LLM is a main research contribution; RAG and a bounded MCP tool server support it. The reference Docker stack will run on an on-demand Azure VM with private Blob backups and a verified local fallback. Resumed M1.T3 must demonstrate that separate private vLLM containers for Qwen generation and EmbeddingGemma retrieval work together on Azure and can restart offline on the Mac.
 
-The user reconfirmed **project/report completion by 30 November 2026**, rehearsal in December and defense around December's second week. The updated schedule is conditional on full-time progress and every required gate passing; it supersedes the elapsed October plan. Azure operation/retention is planned separately through **13 November 2027**. Portal observation confirmed $100 available for that entire period, not per month. Exact university dates, hardware, Azure capacity/prices and GitHub benefit activation still need checking.
+The project/report deadline is **30 November 2026**, with rehearsal in December and defense around its second week. The [17 November Azure preflight](design/azure-and-student-services.md) recorded $100 remaining, credit expiry **12 November 2028**, and a planned compute share of about $55. The separate operations plan runs through **13 November 2027**. No VM was provisioned; capacity at deployment, CPU inference compatibility and timings remain unknown. Reforecast at each gate; deferring the VM saves credit but leaves less time to resolve model or hardware problems.
 
 ## Read in this order
 
@@ -12,6 +12,7 @@ The user reconfirmed **project/report completion by 30 November 2026**, rehearsa
 |---|---|
 | [Topic and literature](research/topic-and-literature.md) | Topic assessment, supervisor repository audit, paper findings, research contribution and scope |
 | [Dataset specification](research/dataset-specification.md) | NEU-DET facts, acquisition checks, annotation policy, splits and quality rules |
+| [Source inventory](research/source-inventory.md) | Model revisions, source/license evidence and the existing local dataset copy |
 | [Architecture](design/architecture.md) | Components, data flow, storage contracts, local agent, MCP, RAG and deployment |
 | [Technology stack](design/technology-stack.md) | Required tools, model candidates, hardware assumptions and version policy |
 | [Azure and student services](design/azure-and-student-services.md) | Verified credit, same-stack deployment, private backups, costs, GitHub benefits and twelve-month operation |
@@ -33,6 +34,7 @@ docs/
   research/
     topic-and-literature.md
     dataset-specification.md
+    source-inventory.md
   design/
     architecture.md
     technology-stack.md
@@ -44,6 +46,7 @@ docs/
     WORKFLOW.md
     PROJECT_STATE.md
     TASK_LOG.md
+    M1_FOUNDATION.md
   review/
     review-log.md
 ```
@@ -56,6 +59,6 @@ The detector predicts **known defect classes and bounding boxes**. The agent exp
 
 ## Guided implementation
 
-The designated chat recorded in WORKFLOW acts as the Architecture agent. The user opens **one chat per module** and implements the work themselves. Codex explains what and why, then supplies every file in ordered logical code sections with exact placement and tests. All required task tests must pass before the next task begins. Report notes stay with each active module; delivery is sequential through M1–M6.
+The designated chat recorded in WORKFLOW acts as the Architecture agent. The user opens **one chat per module** and implements the work themselves. Codex explains each file section and its purpose, gives its exact placement, and reviews the user's test evidence. One task is active at a time. The [development plan](plan/development-plan.md) specifies when to return to the parked M1 and M4 chats; neither module closes before its integration checks pass.
 
-Read the [workflow/kickoff](agent/WORKFLOW.md) and [agent state](agent/PROJECT_STATE.md), then open the M1 chat for **M1.T1**. No runnable application, dataset download, model checkpoint, dependency lock, database, Docker deployment, or benchmark result exists yet. Planned commands and paths describe work to implement, not working features.
+Read the [workflow](agent/WORKFLOW.md) and [project state](agent/PROJECT_STATE.md), then open the M2 chat for **M2.T1**. Start with the existing local NEU-DET copy; provenance, observed counts, annotations and any supplied split still need auditing. Build the dataset, YOLO11n detector, analytics API and dashboard locally. Resume M1.T3 after M4.T1/T4 and before live retrieval, MCP integration or the LLM study. Clearly label any development fixture; it is not research evidence.

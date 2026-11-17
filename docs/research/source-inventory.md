@@ -23,12 +23,14 @@
 
 | Input                  | Upstream identity                                                                        | Decision to record                                                             |
 | ---------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Generator              | Qwen/Qwen3-4B-Instruct-2507, candidate revision cdbee75f17c01a7cc42f958dc650907174af0554 | Apache-2.0 notices, self-hosting and distribution conditions                   |
-| Embedder               | google/embeddinggemma-300m, candidate revision 57c266a740f537b4dc058e1b0cda161fd15afa75  | Gemma terms, account access, hosted use and distribution obligations           |
+| Generator              | Qwen/Qwen3-4B-Instruct-2507, planned revision cdbee75f17c01a7cc42f958dc650907174af0554 | Apache-2.0 notices, self-hosting and distribution conditions                   |
+| Embedder               | google/embeddinggemma-300m, planned revision 57c266a740f537b4dc058e1b0cda161fd15afa75  | Gemma terms, account access, hosted use and distribution obligations           |
 | Detector               | Ultralytics YOLO11n                                                                      | Code and pretrained-weight terms, trained outputs, public-service implications |
 | Dataset                | Existing local NEU-DET directory                                                         | Provenance, terms, hashes and annotation audit in M2                           |
 | Other local collection | NEU-CLS                                                                                  | Outside the planned detector study                                             |
 | Original proposal      | docs/Thesis Proposal.docx                                                                | Preserve original bytes; confirm permission before public distribution         |
+
+These are the pinned revisions for the deferred M1.T3 experiment. The existing license notes and single configuration-file check below do not establish full weight access, permission for staging, snapshot integrity or runtime compatibility. On resumption, verify access and terms before downloads, then record per-file SHA-256 manifests. M2 needs neither snapshot.
 
 ## V06 dated decisions
 

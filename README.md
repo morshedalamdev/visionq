@@ -12,6 +12,11 @@ The foundation provides an installable Python CLI. The worker source is in
 `src/worker/`. The dashboard, detector, model services and public deployment
 belong to later implementation stages.
 
+M1.T1 and M1.T2 are complete. Next is **M2.T1: inventory the existing local
+NEU-DET dataset and document its provenance**. The [development plan](docs/plan/development-plan.md)
+keeps M1.T3 pending until the local detector, analytics and dashboard are ready
+for real AI integration. No inference VM has been provisioned.
+
 ## Reproduce the foundation
 
 Install uv, then run these commands from the repository root:
