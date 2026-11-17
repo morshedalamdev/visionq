@@ -1,0 +1,13 @@
+**
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!alembic.ini
+!src/
+!src/worker/
+!src/worker/*.py
+!migrations/
+!migrations/env.py
+!migrations/versions/
+!migrations/versions/*.py
