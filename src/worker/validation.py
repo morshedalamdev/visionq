@@ -193,7 +193,10 @@ def decode_image(data):
             width, height = image.size
             if width <= 0 or height <= 0 or width * height > LIMITS["pixels"]:
                 raise ValueError("image exceeds geometry limits")
-            if image.n_frames != 1:
+            if (
+                getattr(image, "is_animated", False)
+                or getattr(image, "n_frames", 1) != 1
+            ):
                 raise ValueError("multiple image frames are unsupported")
             image.verify()
 
