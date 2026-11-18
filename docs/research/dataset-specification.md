@@ -1,12 +1,13 @@
 # Dataset specification and quality contract
 
-Status on 17 November: the extracted `dataset/NEU-DET/IMAGES/` and `dataset/NEU-DET/ANNOTATIONS/` directories are present on the Mac. This establishes local availability only. **M2.T1** must inventory the actual copy, record its provenance and complete the applicable factsheet entries. Keep later annotation, quality and split findings with their respective task gates. See [literature P2 and P5](topic-and-literature.md) for citations and interpretation.
-
-Status on 18 November 2026. Read-only M2.T1 inspection measured the existing
-NEU-DET copy. The repeatable inventory implementation and its required checks
-await the owner's application and evidence. The observations below describe
-the inspected copy. Annotation validation, decoded-image checks, duplicate
-review and split release remain assigned to their later task gates.
+Status on 18 November 2026. M2.T1 passed all six checks, including the owner's
+manual provenance confirmation. Closeout evidence is retained locally in
+`artifacts/m2t1-dV4jxu/T1-closeout.json`. Acquisition URL/date, original archive
+availability outside the searched scope, archive SHA-256 and redistribution
+terms remain documented limitations. M2.T2 annotation validation and review
+is next. Decoded-image findings, coordinate interpretation, duplicate review
+and split release require their respective later task evidence. See
+[literature P2 and P5](topic-and-literature.md) for citations and interpretation.
 
 ## Dataset factsheet
 

@@ -96,3 +96,11 @@ Generated manifests and detailed reports are stored under ignored artifacts/.
 The factsheet retains aggregate observations, hashes and limitations.
 Application, verification evidence paths and task status are maintained in
 the delegated agent records.
+
+The owner completed the M2.T1 manual provenance review on 18 November 2026.
+Acquisition URL/date remain unknown. No original archive, notice or partition
+list is known beyond the recorded search. Archive availability outside that
+scope remains unverified and original archive SHA-256 remains unknown.
+Redistribution terms remain unresolved. Confirmation is retained locally in
+`artifacts/m2t1-dV4jxu/V05-manual-provenance.md`, with the six-check closeout
+in `artifacts/m2t1-dV4jxu/T1-closeout.json`.
