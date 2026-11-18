@@ -2,7 +2,6 @@
 
 import hashlib
 import io
-import json
 import math
 import tempfile
 import warnings

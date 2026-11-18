@@ -8,7 +8,6 @@ from pathlib import Path
 import typer
 
 from worker.inventory import publish_inventory
-
 from worker.review import check_review, make_packet
 from worker.validation import (
     audit,
