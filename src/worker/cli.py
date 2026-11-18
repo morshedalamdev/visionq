@@ -228,3 +228,23 @@ def export_dataset(
         typer.echo(f"Export blocked: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("near-review-packet")
+def near_review_packet(
+    root: Path = typer.Option(...),
+    packet: Path = typer.Option(...),
+    plan: Path = typer.Option(...),
+    plan_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    official: Path | None = typer.Option(None),
+):
+    """Create previews and pending decisions for near-duplicate candidates."""
+    from worker.near_review import make_near_packet
+
+    try:
+        result = make_near_packet(root, packet, plan, plan_sha, output, official)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Near review packet failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2))

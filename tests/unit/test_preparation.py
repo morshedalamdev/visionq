@@ -213,3 +213,93 @@ def test_near_candidates_are_not_silently_merged(prepared, tmp_path, monkeypatch
             tmp_path / "blocked",
             {"plan_sha256": digest, "reviewer": "Fixture", "items": []},
         )
+
+
+def test_near_packet_is_complete_and_repeatable(prepared, tmp_path, monkeypatch):
+    from worker.near_review import make_near_packet
+
+    monkeypatch.setattr("worker.preparation.dhash", lambda data: 0)
+    root, packet = prepared
+    before, _ = inventory(root)
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_bytes(canonical_json(prepare(root, packet)))
+    digest = sha256(plan_path.read_bytes())
+
+    first = tmp_path / "near-first"
+    second = tmp_path / "near-second"
+    result = make_near_packet(root, packet, plan_path, digest, first)
+    make_near_packet(root, packet, plan_path, digest, second)
+
+    assert result["candidate_pairs"] == 276
+    assert result["candidate_images"] == 24
+    review = json.loads((first / "near-review.json").read_bytes())
+    assert review["reviewer"] == ""
+    assert review["reviewed_at"] == ""
+    assert all(
+        item["decision"] == "pending" and item["reason"] == ""
+        for item in review["items"]
+    )
+
+    metadata = json.loads((first / "packet.json").read_bytes())
+    for name, expected in metadata["static_files"].items():
+        assert sha256((first / name).read_bytes()) == expected
+
+    members = {path.relative_to(first) for path in first.rglob("*") if path.is_file()}
+    assert members == {
+        path.relative_to(second) for path in second.rglob("*") if path.is_file()
+    }
+    assert all(
+        (first / name).read_bytes() == (second / name).read_bytes() for name in members
+    )
+
+    for path in (first / "images").glob("*.png"):
+        with Image.open(path) as image:
+            image.load()
+            assert image.size == (16, 16)
+
+    after, _ = inventory(root)
+    assert before == after
+
+    with pytest.raises(FileExistsError):
+        make_near_packet(root, packet, plan_path, digest, first)
+
+
+def test_near_packet_rejects_tampering(prepared, tmp_path):
+    from worker.near_review import make_near_packet
+
+    root, packet = prepared
+    plan = prepare(root, packet)
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_bytes(canonical_json(plan))
+    digest = sha256(plan_path.read_bytes())
+
+    with pytest.raises(ValueError, match="checksum"):
+        make_near_packet(root, packet, plan_path, "0" * 64, tmp_path / "bad-plan")
+
+    (root / plan["records"][0]["source"]).write_bytes(b"changed")
+    with pytest.raises(ValueError, match="manifest"):
+        make_near_packet(root, packet, plan_path, digest, tmp_path / "bad-source")
+    assert not (tmp_path / "bad-source").exists()
+
+
+def test_near_packet_requires_completed_t2_review(prepared, tmp_path):
+    from worker.near_review import make_near_packet
+
+    root, packet = prepared
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_bytes(canonical_json(prepare(root, packet)))
+
+    review_path = packet / "review.json"
+    review = json.loads(review_path.read_bytes())
+    review["items"][0]["decision"] = "pending"
+    review_path.write_bytes(canonical_json(review))
+
+    with pytest.raises(ValueError, match="pending"):
+        make_near_packet(
+            root,
+            packet,
+            plan_path,
+            sha256(plan_path.read_bytes()),
+            tmp_path / "blocked",
+        )
+    assert not (tmp_path / "blocked").exists()
