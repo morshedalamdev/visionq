@@ -169,3 +169,62 @@ def revise_annotation(
         typer.echo(f"Correction failed: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(json.dumps(revision, indent=2))
+
+
+@app.command("prepare-dataset")
+def prepare_dataset(
+    root: Path = typer.Option(...),
+    packet: Path = typer.Option(...),
+    output: Path = typer.Option(...),
+    official: Path | None = typer.Option(None),
+):
+    """Create a provisional grouped split plan without training inputs."""
+    from worker.preparation import prepare
+
+    try:
+        plan = prepare(root, packet, official)
+        data = canonical_json(plan)
+        write_bundle(root, output, {"plan.json": data})
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Preparation failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(
+        json.dumps(
+            {
+                "status": plan["status"],
+                "stats": plan["stats"],
+                "excluded": len(plan["excluded"]),
+                "near_candidates": len(plan["near_candidates"]),
+            },
+            indent=2,
+        )
+    )
+
+
+@app.command("export-dataset")
+def export_dataset(
+    root: Path = typer.Option(...),
+    packet: Path = typer.Option(...),
+    plan: Path = typer.Option(...),
+    plan_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    near_review: Path | None = typer.Option(None),
+    official: Path | None = typer.Option(None),
+):
+    """Release local training inputs only after genuine review gates pass."""
+    from worker.preparation import export
+
+    try:
+        result = export(
+            root,
+            packet,
+            plan,
+            plan_sha,
+            output,
+            json.loads(near_review.read_bytes()) if near_review else None,
+            official,
+        )
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Export blocked: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2))

@@ -14,6 +14,7 @@ from worker.validation import (
     CLASSES,
     apply_revision,
     audit,
+    decode_image,
     from_yolo,
     inspect_pair,
     make_revision,
@@ -312,3 +313,27 @@ def test_review_requires_identity_notes_and_coverage(tmp_path):
     overlay.write_bytes(b"changed")
     with pytest.raises(ValueError, match="artifact changed"):
         check_review(packet, per_class=1)
+
+
+def test_decode_single_frame_pgm_and_jpeg():
+    pgm = decode_image(PIXELS)
+    assert (pgm["width"], pgm["height"]) == (2, 2)
+    assert pgm["mode"] == "L"
+
+    stream = io.BytesIO()
+    Image.new("RGB", (2, 2), (10, 20, 30)).save(stream, format="JPEG")
+    jpeg = decode_image(stream.getvalue())
+    assert (jpeg["width"], jpeg["height"]) == (2, 2)
+    assert jpeg["mode"] == "RGB"
+
+
+def test_decode_rejects_real_multiframe_gif():
+    stream = io.BytesIO()
+    first = Image.new("RGB", (2, 2), "black")
+    second = Image.new("RGB", (2, 2), "white")
+    first.save(stream, format="GIF", save_all=True, append_images=[second], loop=0)
+    data = stream.getvalue()
+    with Image.open(io.BytesIO(data)) as image:
+        assert image.n_frames == 2, "the fixture must actually contain two frames"
+    with pytest.raises(ValueError, match="multiple image frames"):
+        decode_image(data)
