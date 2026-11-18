@@ -1,11 +1,11 @@
 """Command-line entry point for VisionQ."""
 
 import json
-import typer
 import platform
-
-from pathlib import Path
 from importlib.metadata import version
+from pathlib import Path
+
+import typer
 
 from worker.inventory import publish_inventory
 

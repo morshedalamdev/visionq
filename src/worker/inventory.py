@@ -154,6 +154,9 @@ def _summarize(manifest: list[dict], observations: dict, errors: list[dict]) -> 
             other_files.append(row["path"])
             continue
 
+        stem = Path(*relative.parts[1:]).with_suffix("").as_posix()
+        groups[stem][kind].append(row["path"])
+
     pairs = []
     images_only = []
     xml_only = []
@@ -167,7 +170,9 @@ def _summarize(manifest: list[dict], observations: dict, errors: list[dict]) -> 
         if not images:
             xml_only.extend(xml_files)
         if len(images) > 1 or len(xml_files) > 1:
-            ambiguous.append({"stem": images[0], "xml": xml_files[0]})
+            ambiguous.append({"stem": stem, **members})
+        elif images and xml_files:
+            pairs.append({"image": images[0], "xml": xml_files[0]})
 
     filename_mismatches = []
     for pair in pairs:

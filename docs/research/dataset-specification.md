@@ -30,37 +30,36 @@ review and split release remain assigned to their later task gates.
 Do not upload source images/labels to Git or redistribute the archive by default. Record the source and acquisition instructions. If use terms are unclear, obtain supervisor guidance before distributing data; this does not prevent building the framework on tiny self-created fixtures.
 
 <!-- M2.T1 inventory:start -->
-
 ### Measured extracted-copy inventory
 
 Manifest SHA-256 `12d88cd4c70f984653ba6927729c0f584b29052895d0b0f32706b541dc6a1587`.
 
-| Measurement               | Observed |
-| ------------------------- | -------: |
-| ambiguous stems           |        0 |
-| image candidates          |     1800 |
-| images without xml        |        0 |
-| objects without names     |        0 |
-| other files               |        1 |
-| regular files             |     3601 |
-| stem pairs                |     1800 |
-| total bytes               | 28208067 |
-| xml bndbox elements       |     4189 |
-| xml filename mismatches   |      174 |
-| xml files                 |     1800 |
-| xml inspection errors     |        0 |
-| xml objects               |     4189 |
-| xml without images        |        0 |
-| xmls with multiple labels |      123 |
+| Measurement | Observed |
+|---|---:|
+| ambiguous stems | 0 |
+| image candidates | 1800 |
+| images without xml | 0 |
+| objects without names | 0 |
+| other files | 1 |
+| regular files | 3601 |
+| stem pairs | 1800 |
+| total bytes | 28208067 |
+| xml bndbox elements | 4189 |
+| xml filename mismatches | 174 |
+| xml files | 1800 |
+| xml inspection errors | 0 |
+| xml objects | 4189 |
+| xml without images | 0 |
+| xmls with multiple labels | 123 |
 
-| Raw XML label   | Object elements | XML files containing label |
-| --------------- | --------------: | -------------------------: |
-| crazing         |             689 |                        300 |
-| inclusion       |            1011 |                        382 |
-| patches         |             881 |                        342 |
-| pitted_surface  |             432 |                        301 |
-| rolled-in_scale |             628 |                        300 |
-| scratches       |             548 |                        300 |
+| Raw XML label | Object elements | XML files containing label |
+|---|---:|---:|
+| crazing | 689 | 300 |
+| inclusion | 1011 | 382 |
+| patches | 881 | 342 |
+| pitted_surface | 432 | 301 |
+| rolled-in_scale | 628 | 300 |
+| scratches | 548 | 300 |
 
 <!-- M2.T1 inventory:end -->
 
