@@ -2,37 +2,80 @@
 
 Status on 17 November: the extracted `dataset/NEU-DET/IMAGES/` and `dataset/NEU-DET/ANNOTATIONS/` directories are present on the Mac. This establishes local availability only. **M2.T1** must inventory the actual copy, record its provenance and complete the applicable factsheet entries. Keep later annotation, quality and split findings with their respective task gates. See [literature P2 and P5](topic-and-literature.md) for citations and interpretation.
 
+Status on 18 November 2026. Read-only M2.T1 inspection measured the existing
+NEU-DET copy. The repeatable inventory implementation and its required checks
+await the owner's application and evidence. The observations below describe
+the inspected copy. Annotation validation, decoded-image checks, duplicate
+review and split release remain assigned to their later task gates.
+
 ## Dataset factsheet
 
-| Property | Published description or project policy | Observed archive value |
-|---|---|---|
-| Source | [Northeastern University dataset page](https://faculty.neu.edu.cn/songkechen/zh_CN/zdylm/263270/list/index.htm) | Local tree present; acquisition URL/date, original package and notices not yet verified |
-| Intended collection | NEU-DET, not image-only NEU-CLS | Local directories exist separately; inventory NEU-DET only |
-| Task | Supervised known-defect detection with bounding boxes | Pending sample audit |
-| Images | Published collection: 1,800 grayscale images, 200 × 200 pixels | Pending count, dimensions and channel scan |
-| Composition | Published: 300 images per source category; six categories | Pending image and box counts per class |
-| Annotation | XML, corner coordinates; multiple boxes may occur | Pending schema, indexing and endpoint inspection |
-| Normal samples | No normal control class established by the documentation | Audit archive; do not assume any |
-| Production context | Genuine timestamps, machine IDs and denominators not established | Missing unless verified in source metadata |
-| Rights | Official page requests citation; explicit redistribution terms not established | Inspect bundled notices and record terms |
-| Original paper split | 1,260 train / 540 test | Check for supplied split manifests |
-| Project split | Grouped, approximately 70% train / 15% validation / 15% test | Publish actual counts after duplicate audit |
-| Collection provenance | Use source description; unknown details stay unknown | If the original archive is available, record its SHA-256; otherwise record that gap and hash a deterministic inventory of the extracted files separately |
+| Property                | Published description or project policy                                                                                  | Observed local value and limits                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source                  | [NEU publisher page](https://faculty.neu.edu.cn/songkechen/zh_CN/zdylm/263270/list/index.htm), reviewed 18 November 2026 | Existing local copy. Acquisition URL and date remain unknown.                                                                                               |
+| Intended collection     | NEU-DET detection collection                                                                                             | Inventory root is `dataset/NEU-DET/`. NEU-CLS is outside this inventory.                                                                                    |
+| Images                  | Publisher describes 1,800 grayscale images at 200 × 200                                                                  | 1,800 JPEG candidates. macOS `file` reports 200 × 200 and three JPEG components for every file. Full decoding awaits T2.                                    |
+| Composition             | Publisher describes six source categories with 300 samples each                                                          | Six XML folder codes each occur 300 times. Object-label counts and XML-file support are recorded below. There are 123 XML files with multiple label names.  |
+| Annotation              | XML class and bounding-box declarations                                                                                  | 4,189 object elements and 4,189 bndbox elements. All XML size declarations are 200 × 200 × 1. Coordinate indexing and endpoint semantics remain unresolved. |
+| Pairing                 | Preserve original names and declarations                                                                                 | 1,800 unique exact-stem pairs. There are 174 XML filename declarations that omit `.jpg`. These declarations are preserved.                                  |
+| Raw vocabulary          | Source spellings are evidence                                                                                            | Preserve `rolled-in_scale`. Canonical mapping belongs to T2.                                                                                                |
+| Normal samples          | No normal control class established in the source description                                                            | The observed object-name vocabulary contains six defect labels. Annotation correctness and suitability as negative examples require separate review.        |
+| Production metadata     | Authentic collection metadata requires evidence                                                                          | XML source/database is NEU-DET throughout. No verified acquisition timestamps, machine IDs or production denominators were found in the inspected metadata. |
+| Rights and notices      | Publisher requests citations                                                                                             | No bundled notice found. Explicit redistribution terms remain unresolved after reviewing the publisher page.                                                |
+| Paper protocol          | Existing literature review records 1,260 train / 540 test                                                                | Supplied membership lists were absent from the inspected copy. Official test membership remains unverified.                                                 |
+| Project split           | Apply the documented T3 policy after source and duplicate review                                                         | Split assignment remains pending. Preserve any subsequently verified official test membership and derive validation from training groups.                   |
+| Original archive        | Preserve and hash an available original package                                                                          | No archive found in the recorded search scope. Original archive SHA-256 remains unknown.                                                                    |
+| Extracted-copy identity | Deterministic file inventory                                                                                             | All regular files are included, including `.DS_Store`. The manifest encoding and digest identify the extracted file inventory.                              |
 
 Do not upload source images/labels to Git or redistribute the archive by default. Record the source and acquisition instructions. If use terms are unclear, obtain supervisor guidance before distributing data; this does not prevent building the framework on tiny self-created fixtures.
+
+<!-- M2.T1 inventory:start -->
+
+### Measured extracted-copy inventory
+
+Manifest SHA-256 `12d88cd4c70f984653ba6927729c0f584b29052895d0b0f32706b541dc6a1587`.
+
+| Measurement               | Observed |
+| ------------------------- | -------: |
+| ambiguous stems           |        0 |
+| image candidates          |     1800 |
+| images without xml        |        0 |
+| objects without names     |        0 |
+| other files               |        1 |
+| regular files             |     3601 |
+| stem pairs                |     1800 |
+| total bytes               | 28208067 |
+| xml bndbox elements       |     4189 |
+| xml filename mismatches   |      174 |
+| xml files                 |     1800 |
+| xml inspection errors     |        0 |
+| xml objects               |     4189 |
+| xml without images        |        0 |
+| xmls with multiple labels |      123 |
+
+| Raw XML label   | Object elements | XML files containing label |
+| --------------- | --------------: | -------------------------: |
+| crazing         |             689 |                        300 |
+| inclusion       |            1011 |                        382 |
+| patches         |             881 |                        342 |
+| pitted_surface  |             432 |                        301 |
+| rolled-in_scale |             628 |                        300 |
+| scratches       |             548 |                        300 |
+
+<!-- M2.T1 inventory:end -->
 
 ## Class vocabulary and annotation import
 
 The following is the **project's proposed ID mapping**, not a claim about source IDs. Preserve source spellings and define aliases explicitly during import.
 
-| ID | Canonical name |
-|---|---|
-| 0 | crazing |
-| 1 | inclusion |
-| 2 | patches |
-| 3 | pitted_surface |
-| 4 | rolled_in_scale |
-| 5 | scratches |
+| ID  | Canonical name  |
+| --- | --------------- |
+| 0   | crazing         |
+| 1   | inclusion       |
+| 2   | patches         |
+| 3   | pitted_surface  |
+| 4   | rolled_in_scale |
+| 5   | scratches       |
 
 Preserve the original XML and its checksum. Canonical boxes use zero-based, half-open pixel edges `[xmin, ymin, xmax, ymax)` in the original image orientation. Require `0 <= xmin < xmax <= width` and equivalent Y bounds. Source endpoint semantics are currently unknown: inspect border cases and draw at least five annotated images per class before selecting the conversion. If XML is verified as one-based inclusive, subtract one from each minimum and retain each maximum. Never infer this solely from the XML format name.
 
@@ -54,18 +97,18 @@ No synthetic variants or augmented siblings enter a different split. Do not sele
 
 Rules are project adaptations of the validation principles in P4. Each finding records rule ID/version, severity, asset/batch, observed/expected values and action. Dataset release is separate from raw ingestion: invalid assets can be catalogued but cannot silently enter training.
 
-| Rule | Check | Severity and action | Verification fixture |
-|---|---|---|---|
-| DQ01 | File safely decodes within byte/pixel limits | Error; quarantine | Truncated image and oversized header |
-| DQ02 | Positive dimensions and expected source geometry/channels | Error on unusable input; warning on a documented variant | Zero size, RGB variant |
-| DQ03 | Training/evaluation annotation exists and parses safely | Error; block affected sample | Missing XML, malformed XML, external entity |
-| DQ04 | Class belongs to frozen vocabulary | Error; quarantine annotation | Unknown class and explicit alias |
-| DQ05 | Finite, ordered, in-bounds nonempty box | Error; no silent clipping | Negative, reversed, NaN, border box |
-| DQ06 | XML dimensions agree with decoded image | Error; review | Deliberate mismatch |
-| DQ07 | Exact hash duplicates and label conflicts accounted for | Deduplicate aliases; error for conflicts | Same bytes at new paths |
-| DQ08 | No duplicate/acquisition group spans splits | Error; block release | Shared group across train/test |
-| DQ09 | Released artifact checksum matches manifest | Error; block run | Changed bytes after registration |
-| DQ10 | Class coverage/count and brightness statistics compared with reference | Warning; review, no automatic deletion | Shifted batch and absent class |
+| Rule | Check                                                                  | Severity and action                                      | Verification fixture                        |
+| ---- | ---------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------- |
+| DQ01 | File safely decodes within byte/pixel limits                           | Error; quarantine                                        | Truncated image and oversized header        |
+| DQ02 | Positive dimensions and expected source geometry/channels              | Error on unusable input; warning on a documented variant | Zero size, RGB variant                      |
+| DQ03 | Training/evaluation annotation exists and parses safely                | Error; block affected sample                             | Missing XML, malformed XML, external entity |
+| DQ04 | Class belongs to frozen vocabulary                                     | Error; quarantine annotation                             | Unknown class and explicit alias            |
+| DQ05 | Finite, ordered, in-bounds nonempty box                                | Error; no silent clipping                                | Negative, reversed, NaN, border box         |
+| DQ06 | XML dimensions agree with decoded image                                | Error; review                                            | Deliberate mismatch                         |
+| DQ07 | Exact hash duplicates and label conflicts accounted for                | Deduplicate aliases; error for conflicts                 | Same bytes at new paths                     |
+| DQ08 | No duplicate/acquisition group spans splits                            | Error; block release                                     | Shared group across train/test              |
+| DQ09 | Released artifact checksum matches manifest                            | Error; block run                                         | Changed bytes after registration            |
+| DQ10 | Class coverage/count and brightness statistics compared with reference | Warning; review, no automatic deletion                   | Shifted batch and absent class              |
 
 An empty annotation is not evidence of a good product in this source. Label-free inference uploads may omit labels and must be tagged `unlabeled`; supervised training/evaluation requires the appropriate annotation policy. Distinguish legitimate empty predictions from missing prediction records.
 
