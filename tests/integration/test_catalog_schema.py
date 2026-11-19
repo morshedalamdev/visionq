@@ -95,15 +95,30 @@ def catalog(connection):
         "revision": "e" * 64,
         "group": "f" * 64,
     }
+
     conn.execute(
         text("""
-            INSERT INTO annotation_revisions (
-                dataset_version_id, asset_id, revision_sha256,
-                source_xml_sha256, lineage
-            ) VALUES (:version, :asset, :revision, :xml, '{"synthetic":true}')
-        """),
-        {**identity, "xml": "d" * 64},
+        INSERT INTO annotation_revisions (
+            dataset_version_id,
+            asset_id,
+            revision_sha256,
+            source_xml_sha256,
+            lineage
+        ) VALUES (
+            :version,
+            :asset,
+            :revision,
+            :xml,
+            CAST(:lineage AS jsonb)
+        )
+    """),
+        {
+            **identity,
+            "xml": "d" * 64,
+            "lineage": '{"synthetic": true}',
+        },
     )
+
     conn.execute(
         text("""
             INSERT INTO dataset_groups (dataset_version_id, group_id, split)
@@ -139,18 +154,42 @@ def insert_item(conn, identity, split="train"):
 )
 def test_box_constraints(catalog, box, valid):
     conn, identity = catalog
+
     parameters = {
         **identity,
-        **dict(zip(("xmin", "ymin", "xmax", "ymax"), box, strict=True)),
+        **dict(
+            zip(
+                ("box_xmin", "box_ymin", "box_xmax", "box_ymax"),
+                box,
+                strict=True,
+            )
+        ),
     }
+
     statement = text("""
         INSERT INTO annotations (
-            dataset_version_id, asset_id, revision_sha256,
-            ordinal, class_id, xmin, ymin, xmax, ymax
+            dataset_version_id,
+            asset_id,
+            revision_sha256,
+            ordinal,
+            class_id,
+            box_xmin,
+            box_ymin,
+            box_xmax,
+            box_ymax
         ) VALUES (
-            :version, :asset, :revision, 0, 0, :xmin, :ymin, :xmax, :ymax
+            :version,
+            :asset,
+            :revision,
+            0,
+            0,
+            :box_xmin,
+            :box_ymin,
+            :box_xmax,
+            :box_ymax
         )
     """)
+
     if valid:
         conn.execute(statement, parameters)
     else:

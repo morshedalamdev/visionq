@@ -105,10 +105,10 @@ def upgrade():
             revision_sha256 catalog_sha256 NOT NULL,
             ordinal integer NOT NULL CHECK (ordinal >= 0),
             class_id integer NOT NULL CHECK (class_id BETWEEN 0 AND 5),
-            xmin double precision NOT NULL,
-            ymin double precision NOT NULL,
-            xmax double precision NOT NULL,
-            ymax double precision NOT NULL,
+            box_xmin double precision NOT NULL,
+            box_ymin double precision NOT NULL,
+            box_xmax double precision NOT NULL,
+            box_ymax double precision NOT NULL,
             PRIMARY KEY (
                 dataset_version_id, asset_id, revision_sha256, ordinal
             ),
@@ -118,10 +118,10 @@ def upgrade():
                 dataset_version_id, asset_id, revision_sha256
             ),
             CHECK (
-                0 <= xmin AND xmin < xmax
-                AND xmax < 'Infinity'::double precision
-                AND 0 <= ymin AND ymin < ymax
-                AND ymax < 'Infinity'::double precision
+                0 <= box_xmin AND box_xmin < box_xmax
+                AND box_xmax < 'Infinity'::double precision
+                AND 0 <= box_ymin AND box_ymin < box_ymax
+                AND box_ymax < 'Infinity'::double precision
             )
         )
     """)
@@ -226,18 +226,22 @@ def upgrade():
             image_width integer;
             image_height integer;
         BEGIN
-            SELECT width, height INTO image_width, image_height
-            FROM assets WHERE id = NEW.asset_id;
+            SELECT width, height
+            INTO image_width, image_height
+            FROM assets
+            WHERE id = NEW.asset_id;
 
             IF NOT FOUND THEN
                 RAISE EXCEPTION 'annotation asset is missing'
                     USING ERRCODE = '23503';
             END IF;
 
-            IF NEW.xmax > image_width OR NEW.ymax > image_height THEN
+            IF NEW.box_xmax > image_width
+               OR NEW.box_ymax > image_height THEN
                 RAISE EXCEPTION 'annotation exceeds asset dimensions'
                     USING ERRCODE = '23514';
             END IF;
+
             RETURN NEW;
         END
         $$
