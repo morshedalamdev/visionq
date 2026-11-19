@@ -48,6 +48,8 @@ Original estimate 24–30 hours. M2.T1 is the next active priority. The required
 
 The M2 module gate requires released dataset v1, a verified importer and frozen test membership. Derive dataset/methodology notes from the observed files and audit results. M2.T4 uses the existing private Blob resources for its rights-reviewed catalog/manifest backup. Verify rights before uploading dataset/model bytes.
 
+**M2.T4 status (19 November 2026): partial.** The synthetic-only importer, reconciliation, local rights-classified backup, fresh restore with explicit failure recovery, CLI and CI enforcement are implemented and verified on disposable PostgreSQL clusters; see the [catalog runbook](../operations/catalog-runbook.md). Acceptance on the real NEU-DET release (T3 release/freeze pending) and the Blob backup (rights review and Azure authorization pending) remains open and is not claimed.
+
 ## Module 3 Detector and traceable inference
 
 Original estimate 18–24 hours excluding unattended training. Start after all M2 task and module gates pass. Develop and run the YOLO11n baseline on the measured Mac device. Record hardware, training configuration and checkpoint/prediction backups. Revisit device fit with the Architecture chat if measurements require a change.

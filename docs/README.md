@@ -22,6 +22,7 @@ The project/report deadline is **30 November 2026**, with rehearsal in December 
 | [Agent project state](agent/PROJECT_STATE.md) | Current truth, next task, decisions and handoff procedure for another Codex chat |
 | [Task gates and handoffs](agent/TASK_LOG.md) | All 22 task statuses, required-check evidence and module completion records |
 | [Review record](review/review-log.md) | Independent challenge, corrections and final review verdict |
+| [Catalog runbook](operations/catalog-runbook.md) | M2.T4 ingestion, reconciliation, backup/restore failure recovery, disposable PostgreSQL setup and rights limits |
 
 The original [Thesis Proposal.docx](Thesis%20Proposal.docx) is retained as supplied. It contains three candidate topics; this plan develops **Topic 3**. It is source material, not the current implementation specification.
 

@@ -50,3 +50,42 @@ jobs:
           dc run --rm worker python -m worker.fixture verify
           dc exec -T db psql -X -U visionq -d visionq -Atc \
             "SELECT extversion FROM pg_extension WHERE extname='vector'"
+
+  catalog:
+    # M2.T4: every catalog integration test must run; skips are failures.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VISIONQ_T4_ENV_DIR: ${{ runner.temp }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.8"
+          enable-cache: false
+
+      - name: Locked environment
+        run: |
+          uv python install
+          uv sync --locked
+
+      - name: Disposable source and restore PostgreSQL clusters
+        run: |
+          set -euo pipefail
+          deploy/t4-postgres.sh up source
+          deploy/t4-postgres.sh up restore
+
+      - name: Catalog integration and full test suite
+        run: |
+          set -euo pipefail
+          . "$RUNNER_TEMP/visionq-t4-source.env"
+          export VISIONQ_DATABASE_URL="$VISIONQ_T4_URL"
+          . "$RUNNER_TEMP/visionq-t4-restore.env"
+          export VISIONQ_RESTORE_DATABASE_URL="$VISIONQ_T4_URL"
+          unset VISIONQ_T4_URL VISIONQ_T4_PASSWORD
+          export VISIONQ_T4_SCHEMA_TEST=1 VISIONQ_T4_RESTORE_TEST=1
+          export VISIONQ_REQUIRE_T4_TESTS=1
+          uv run --locked python -m pytest -q -rs

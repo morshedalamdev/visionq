@@ -2,20 +2,23 @@
 
 import json
 import platform
+from contextlib import contextmanager
 from importlib.metadata import version
 from pathlib import Path
 
 import typer
+from sqlalchemy.exc import SQLAlchemyError
 
 from worker.backup import Directory
 from worker.catalog import ingest, operation_status
 from worker.catalog_backup import (
+    RestoreIncomplete,
     backup_catalog,
     restore_catalog,
     verify_catalog_backup,
 )
 from worker.catalog_input import load_package
-from worker.catalog_store import CatalogBusy, CatalogConflict
+from worker.catalog_store import CatalogBusy
 from worker.db import database
 from worker.inventory import publish_inventory
 from worker.reconciliation import reconcile, report_text
@@ -39,6 +42,49 @@ def main() -> None:
     """Run a Vision command."""
 
 
+CATALOG_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    SQLAlchemyError,
+    CatalogBusy,
+    RestoreIncomplete,
+)
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
+
+
+def describe(exc: Exception) -> str:
+    # Database errors can embed connection details, so only the type is shown.
+    if isinstance(exc, SQLAlchemyError):
+        return f"database operation failed ({type(exc).__name__})"
+    if isinstance(exc, KeyError):
+        return f"missing required setting or field {exc}"
+    if isinstance(exc, FileExistsError):
+        return f"already exists: {exc}"
+    return str(exc) or type(exc).__name__
+
+
+@contextmanager
+def catalog_session(command: str, database_required: bool = True, loopback=False):
+    """Yield a disposable engine; map expected failures to one-line errors."""
+    engine = None
+    try:
+        if database_required:
+            engine = database()
+            if loopback and engine.url.host not in LOOPBACK_HOSTS:
+                raise ValueError(
+                    "local catalog restore requires a loopback VISIONQ_DATABASE_URL"
+                )
+        yield engine
+    except CATALOG_ERRORS as exc:
+        typer.echo(f"{command} failed: {describe(exc)}", err=True)
+        raise typer.Exit(code=1) from exc
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
 def catalog_package(
     source: Path,
     baseline: Path,
@@ -57,25 +103,6 @@ def catalog_package(
         dataset_name=dataset_name,
         version=version,
     )
-
-
-def catalog_store(local_store: Path | None):
-    if local_store is None:
-        raise ValueError(
-            "M2.T4 requires --local-store; remote catalog backup is not authorized"
-        )
-    return Directory(local_store)
-
-
-def catalog_engine(require_loopback: bool = False):
-    engine = database()
-    if require_loopback:
-        if engine.url.host not in ("127.0.0.1", "localhost"):
-            engine.dispose()
-            raise ValueError(
-                "local catalog restore requires an explicit loopback database URL"
-            )
-    return engine
 
 
 @app.command()
@@ -312,8 +339,7 @@ def catalog_import(
     artifact_root: Path = typer.Option(...),
 ):
     """Import a synthetic T4 catalog package."""
-    engine = catalog_engine()
-    try:
+    with catalog_session("catalog-import") as engine:
         package = catalog_package(
             source,
             baseline,
@@ -324,17 +350,6 @@ def catalog_import(
             version,
         )
         report = ingest(engine, artifact_root, package)
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        CatalogConflict,
-        CatalogBusy,
-    ) as exc:
-        raise typer.Exit(code=1) from exc
-    finally:
-        engine.dispose()
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
@@ -351,8 +366,7 @@ def catalog_resume(
     run_id: str = typer.Option(...),
 ):
     """Resume only the operation matching the package run identity."""
-    engine = catalog_engine()
-    try:
+    with catalog_session("catalog-resume") as engine:
         package = catalog_package(
             source,
             baseline,
@@ -368,30 +382,14 @@ def catalog_resume(
             package,
             resume_run=run_id,
         )
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        CatalogConflict,
-        CatalogBusy,
-    ) as exc:
-        raise typer.Exit(code=1) from exc
-    finally:
-        engine.dispose()
     typer.echo(json.dumps(report, indent=2, sort_keys=True))
 
 
 @app.command("catalog-status")
 def catalog_status(run_id: str = typer.Option(...)):
     """Print persisted ingestion operation and item states."""
-    engine = catalog_engine()
-    try:
+    with catalog_session("catalog-status") as engine:
         status = operation_status(engine, run_id)
-    except (OSError, ValueError, CatalogConflict) as exc:
-        raise typer.Exit(code=1) from exc
-    finally:
-        engine.dispose()
     typer.echo(json.dumps(status, indent=2, sort_keys=True))
 
 
@@ -407,8 +405,7 @@ def catalog_reconcile(
     artifact_root: Path = typer.Option(...),
 ):
     """Compare catalog rows and artifacts with the package specification."""
-    engine = catalog_engine()
-    try:
+    with catalog_session("catalog-reconcile") as engine:
         package = catalog_package(
             source,
             baseline,
@@ -423,24 +420,16 @@ def catalog_reconcile(
             artifact_root,
             package.specification(),
         )
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        CatalogConflict,
-    ) as exc:
-        raise typer.Exit(code=1) from exc
-    finally:
-        engine.dispose()
     typer.echo(report_text(report), nl=False)
+    if not report["ok"]:
+        raise typer.Exit(code=1)
 
 
 @app.command("catalog-backup")
 def catalog_backup(
     backup_id: str = typer.Option(...),
     artifact_root: Path = typer.Option(...),
-    local_store: Path | None = typer.Option(None),
+    local_store: Path = typer.Option(..., help="Local directory used as the store."),
     source: Path = typer.Option(...),
     baseline: Path = typer.Option(...),
     packet: Path = typer.Option(...),
@@ -450,8 +439,7 @@ def catalog_backup(
     version: int = typer.Option(...),
 ):
     """Back up a complete reconciled synthetic catalog snapshot."""
-    engine = catalog_engine()
-    try:
+    with catalog_session("catalog-backup") as engine:
         package = catalog_package(
             source,
             baseline,
@@ -464,21 +452,10 @@ def catalog_backup(
         manifest_sha = backup_catalog(
             engine,
             artifact_root,
-            catalog_store(local_store),
+            Directory(local_store),
             backup_id,
             package,
         )
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        CatalogConflict,
-        CatalogBusy,
-    ) as exc:
-        raise typer.Exit(code=1) from exc
-    finally:
-        engine.dispose()
     typer.echo(
         json.dumps(
             {
@@ -494,17 +471,11 @@ def catalog_backup(
 @app.command("catalog-verify")
 def catalog_verify(
     backup_id: str = typer.Option(...),
-    local_store: Path | None = typer.Option(None),
+    local_store: Path = typer.Option(..., help="Local directory used as the store."),
 ):
     """Verify the complete catalog backup and completion marker."""
-    try:
-        manifest_sha = verify_catalog_backup(
-            catalog_store(local_store),
-            backup_id,
-        )
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        typer.echo(f"catalog-verify failed: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+    with catalog_session("catalog-verify", database_required=False):
+        manifest_sha = verify_catalog_backup(Directory(local_store), backup_id)
     typer.echo(
         json.dumps(
             {
@@ -522,28 +493,16 @@ def catalog_verify(
 def catalog_restore(
     backup_id: str = typer.Option(...),
     destination: Path = typer.Option(...),
-    local_store: Path | None = typer.Option(None),
+    local_store: Path = typer.Option(..., help="Local directory used as the store."),
 ):
-    """Restore a synthetic catalog to fresh local artifacts and PostgreSQL."""
-    engine = catalog_engine(require_loopback=True)
-    try:
+    """Restore (or resume restoring) a synthetic catalog to local PostgreSQL."""
+    with catalog_session("catalog-restore", loopback=True) as engine:
         manifest_sha = restore_catalog(
             engine,
-            catalog_store(local_store),
+            Directory(local_store),
             backup_id,
             destination,
         )
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        CatalogConflict,
-        CatalogBusy,
-    ) as exc:
-        raise typer.Exit(code=1) from exc
-    finally:
-        engine.dispose()
     typer.echo(
         json.dumps(
             {

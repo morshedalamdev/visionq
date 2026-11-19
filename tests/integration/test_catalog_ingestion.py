@@ -1,136 +1,16 @@
 from __future__ import annotations
 
-import json
-import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from pathlib import Path
-from uuid import uuid4
+from threading import Barrier
 
 import pytest
+from catalog_support import build_release, catalog_counts
+from sqlalchemy import text
 
-from worker.backup import Directory
 from worker.catalog import ingest, operation_status
-from worker.catalog_backup import (
-    backup_catalog,
-    rights_for_package,
-    verify_catalog_backup,
-)
-from worker.catalog_input import load_package, synthetic_sources
-from worker.catalog_store import CatalogConflict
-from worker.db import database
-from worker.inventory import canonical_json, inventory
-from worker.preparation import export, prepare
+from worker.catalog_store import CatalogBusy, CatalogConflict, writer
 from worker.reconciliation import reconcile
-from worker.review import make_packet
-from worker.validation import audit, sha256
-
-
-def build_release(tmp_path: Path, dataset_name: str, version: int):
-    source = tmp_path / "source"
-    (source / "IMAGES").mkdir(parents=True)
-    (source / "ANNOTATIONS").mkdir()
-
-    for relative_path, data in synthetic_sources().items():
-        destination = source / relative_path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(data)
-
-    manifest, _ = inventory(source)
-    baseline = tmp_path / "baseline.json"
-    baseline.write_bytes(canonical_json(manifest))
-
-    report = audit(
-        source,
-        baseline,
-        sha256(baseline.read_bytes()),
-        "one-based-inclusive",
-    )
-    report_path = tmp_path / "audit.json"
-    report_path.write_bytes(canonical_json(report))
-
-    packet = tmp_path / "packet"
-    make_packet(source, report_path, packet)
-
-    review_path = packet / "review.json"
-    review = json.loads(review_path.read_bytes())
-    review.update(
-        reviewer="Synthetic fixture",
-        reviewed_at="2026-11-19T12:00:00+08:00",
-        coordinate_basis="Known synthetic one-based-inclusive boxes",
-        warning_disposition="Expected synthetic class-count warnings",
-    )
-    for item in review["items"]:
-        item.update(decision="accept", notes="Synthetic known annotation")
-    review_path.write_bytes(canonical_json(review))
-
-    plan = prepare(source, packet)
-    plan_path = tmp_path / "plan.json"
-    plan_path.write_bytes(canonical_json(plan))
-
-    release = tmp_path / "release"
-    result = export(
-        source,
-        packet,
-        plan_path,
-        sha256(plan_path.read_bytes()),
-        release,
-    )
-
-    package = load_package(
-        source=source,
-        baseline=baseline,
-        packet=packet,
-        release=release,
-        release_sha256=result["manifest_sha256"],
-        dataset_name=f"{dataset_name}-{uuid4().hex}",
-        version=version,
-    )
-    return package, release
-
-
-@pytest.fixture
-def postgres_engine():
-    if pytest.importorskip("psycopg") is None:
-        pytest.fail("psycopg is required")
-
-    if os.environ.get("VISIONQ_T4_SCHEMA_TEST") != "1":
-        pytest.skip("requires the isolated T4 PostgreSQL database")
-
-    if not os.environ.get("VISIONQ_DATABASE_URL"):
-        pytest.fail("VISIONQ_DATABASE_URL must be explicit")
-
-    engine = database()
-    if engine.url.database != "visionq_t4_test":
-        engine.dispose()
-        pytest.fail("tests require database visionq_t4_test")
-    if engine.url.host not in ("127.0.0.1", "localhost"):
-        engine.dispose()
-        pytest.fail("tests require loopback PostgreSQL")
-
-    yield engine
-    engine.dispose()
-
-
-def catalog_counts(engine):
-    tables = (
-        "catalog_artifacts",
-        "dataset_versions",
-        "assets",
-        "annotation_revisions",
-        "annotations",
-        "dataset_groups",
-        "dataset_items",
-        "quality_issues",
-        "ingestion_runs",
-        "ingestion_items",
-    )
-    with engine.connect() as connection:
-        return {
-            table: connection.exec_driver_sql(
-                f"SELECT count(*) FROM {table}"
-            ).scalar_one()
-            for table in tables
-        }
 
 
 def test_first_import_and_repeat_are_idempotent(postgres_engine, tmp_path):
@@ -188,6 +68,64 @@ def test_interrupted_import_resumes_as_partial_then_succeeds(postgres_engine, tm
     assert final_status["items"]["failed"] == 0
 
 
+def test_failure_before_item_commit_rolls_back_the_whole_item(
+    postgres_engine, tmp_path
+):
+    package, _ = build_release(tmp_path, "synthetic-t4-rollback", 1)
+    root = tmp_path / "artifacts"
+    victim = sorted(package.unit_artifacts)[0]
+
+    def fail_before_commit(stage, asset_id):
+        if stage == "before_item_commit" and asset_id == victim:
+            raise RuntimeError("synthetic failure before commit")
+
+    with pytest.raises(RuntimeError, match="before commit"):
+        ingest(postgres_engine, root, package, hook=fail_before_commit)
+
+    version_id = package.specification()["version_id"]
+    with postgres_engine.connect() as connection:
+        for table in ("dataset_items", "annotation_revisions", "annotations"):
+            rows = connection.scalar(
+                text(
+                    f"SELECT count(*) FROM {table} "
+                    "WHERE dataset_version_id = CAST(:v AS uuid) "
+                    "AND asset_id = CAST(:a AS uuid)"
+                ),
+                {"v": version_id, "a": victim},
+            )
+            assert rows == 0, table
+
+    status = operation_status(postgres_engine, package.run_id)
+    assert status["operation"]["status"] == "failed"
+    assert status["items"]["succeeded"] == 0
+    assert status["items"]["failed"] == 1
+
+    assert ingest(postgres_engine, root, package, resume_run=package.run_id)["ok"]
+    assert operation_status(postgres_engine, package.run_id)["operation"]["status"] == (
+        "succeeded"
+    )
+
+
+def test_item_attempts_are_bounded(postgres_engine, tmp_path):
+    package, _ = build_release(tmp_path, "synthetic-t4-attempts", 1)
+    root = tmp_path / "artifacts"
+
+    def always_fail(stage, asset_id):
+        if stage == "before_publication":
+            raise RuntimeError("synthetic persistent failure")
+
+    for _ in range(3):
+        with pytest.raises(RuntimeError, match="persistent failure"):
+            ingest(postgres_engine, root, package, hook=always_fail)
+
+    with pytest.raises(CatalogConflict, match="three recorded attempts"):
+        ingest(postgres_engine, root, package)
+    assert operation_status(postgres_engine, package.run_id)["operation"]["status"] in (
+        "failed",
+        "partial",
+    )
+
+
 def test_reconciliation_is_deterministic_and_read_only(postgres_engine, tmp_path):
     package, _ = build_release(tmp_path, "synthetic-t4-reconcile", 1)
     root = tmp_path / "artifacts"
@@ -235,6 +173,21 @@ def test_reconciliation_reports_missing_corrupt_and_orphan_artifacts(
     )
 
 
+def test_completed_import_with_corrupt_artifact_is_reported_not_repaired(
+    postgres_engine, tmp_path
+):
+    package, _ = build_release(tmp_path, "synthetic-t4-no-repair", 1)
+    root = tmp_path / "artifacts"
+    ingest(postgres_engine, root, package)
+
+    artifact = root / "catalog" / "objects" / sorted(package.blobs)[0]
+    artifact.write_bytes(b"corrupt")
+
+    with pytest.raises(CatalogConflict, match="no longer reconciles"):
+        ingest(postgres_engine, root, package)
+    assert artifact.read_bytes() == b"corrupt"
+
+
 def test_changed_expected_identity_is_rejected(postgres_engine, tmp_path):
     package, _ = build_release(tmp_path, "synthetic-t4-conflict", 1)
     root = tmp_path / "artifacts"
@@ -270,46 +223,48 @@ def test_resume_identity_must_match(postgres_engine, tmp_path):
         )
 
 
-def test_catalog_backup_and_verification(postgres_engine, tmp_path):
-    package, _ = build_release(tmp_path, "synthetic-t4-backup", 1)
+def test_second_writer_is_rejected_while_the_catalog_lock_is_held(
+    postgres_engine, tmp_path
+):
+    package, _ = build_release(tmp_path, "synthetic-t4-lock", 1)
     root = tmp_path / "artifacts"
 
-    ingest(postgres_engine, root, package)
+    with writer(postgres_engine):
+        with pytest.raises(CatalogBusy):
+            ingest(postgres_engine, root, package)
+        assert not (root / "catalog").exists()
+        # Reads are not blocked by the writer lock.
+        with pytest.raises(ValueError, match="unknown ingestion operation"):
+            operation_status(postgres_engine, package.run_id)
 
-    store = Directory(tmp_path / "catalog-store")
-    backup_id = str(uuid4())
+    assert ingest(postgres_engine, root, package)["ok"] is True
 
-    manifest_sha = backup_catalog(
-        postgres_engine,
-        root,
-        store,
-        backup_id,
-        package,
+
+def test_concurrent_importers_serialize_without_duplicate_rows(
+    postgres_engine, tmp_path
+):
+    package, _ = build_release(tmp_path, "synthetic-t4-concurrent", 1)
+    root = tmp_path / "artifacts"
+    barrier = Barrier(2)
+
+    def attempt(_):
+        barrier.wait()
+        try:
+            return ingest(postgres_engine, root, package)
+        except CatalogBusy as exc:
+            return exc
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(attempt, range(2)))
+
+    assert any(isinstance(result, dict) and result["ok"] for result in results)
+    assert all(
+        isinstance(result, CatalogBusy) or result["ok"] is True for result in results
     )
 
-    assert verify_catalog_backup(store, backup_id) == manifest_sha
-
-    with pytest.raises(FileExistsError):
-        backup_catalog(
-            postgres_engine,
-            root,
-            store,
-            backup_id,
-            package,
-        )
-
-    released = replace(
-        package,
-        rows={
-            **package.rows,
-            "dataset_versions": [
-                {
-                    **package.rows["dataset_versions"][0],
-                    "evidence_kind": "released",
-                }
-            ],
-        },
-    )
-
-    with pytest.raises(ValueError, match="rights clearance"):
-        rights_for_package(released)
+    report = reconcile(postgres_engine, root, package.specification())
+    assert report["ok"] is True
+    assert report["findings"] == []
+    status = operation_status(postgres_engine, package.run_id)
+    assert status["operation"]["status"] == "succeeded"
+    assert status["items"]["succeeded"] == len(package.unit_artifacts)
