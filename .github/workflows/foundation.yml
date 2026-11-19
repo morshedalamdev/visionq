@@ -55,8 +55,6 @@ jobs:
     # M2.T4: every catalog integration test must run; skips are failures.
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      VISIONQ_T4_ENV_DIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,6 +73,7 @@ jobs:
       - name: Disposable source and restore PostgreSQL clusters
         run: |
           set -euo pipefail
+          export VISIONQ_T4_ENV_DIR="$RUNNER_TEMP"
           deploy/t4-postgres.sh up source
           deploy/t4-postgres.sh up restore
 
