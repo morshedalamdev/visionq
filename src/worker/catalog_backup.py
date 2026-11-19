@@ -9,7 +9,6 @@ from uuid import UUID
 
 from sqlalchemy import select, text
 
-from worker.backup import Azure, Directory
 from worker.catalog_store import ensure_row, read_rows, tables, writer
 from worker.fixture import publish
 from worker.inventory import canonical_json
@@ -77,7 +76,13 @@ def rights_for_package(package) -> dict:
         "format": RIGHTS_FORMAT,
         "evidence_kind": "synthetic",
         "classification": "synthetic-only",
-        "included_categories": sorted(set(package.categories.values())),
+        "included_categories": sorted(
+            {
+                category
+                for categories in package.categories.values()
+                for category in categories
+            }
+        ),
         "excluded_categories": [],
     }
 
@@ -193,7 +198,13 @@ def read_verified_bundle(store, backup_id: str):
     return manifest_sha, specification, catalog, rights, inventory
 
 
-def backup_catalog(engine, store, backup_id: str, package) -> str:
+def backup_catalog(
+    engine,
+    root: Path,
+    store,
+    backup_id: str,
+    package,
+) -> str:
     backup_id = validate_backup_id(backup_id)
     base = prefix(backup_id)
 
@@ -212,8 +223,8 @@ def backup_catalog(engine, store, backup_id: str, package) -> str:
             connection.execute(text("SET TRANSACTION READ ONLY"))
             report = reconcile_connection(
                 connection,
-                root=None,
-                spec=specification,
+                root,
+                specification,
             )
     if not report["ok"]:
         raise ValueError("catalog is not complete and reconciled")

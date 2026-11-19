@@ -7,7 +7,18 @@ from pathlib import Path
 
 import typer
 
+from worker.backup import Directory
+from worker.catalog import ingest, operation_status
+from worker.catalog_backup import (
+    backup_catalog,
+    restore_catalog,
+    verify_catalog_backup,
+)
+from worker.catalog_input import load_package
+from worker.catalog_store import CatalogBusy, CatalogConflict
+from worker.db import database
 from worker.inventory import publish_inventory
+from worker.reconciliation import reconcile, report_text
 from worker.review import check_review, make_packet
 from worker.validation import (
     audit,
@@ -15,22 +26,6 @@ from worker.validation import (
     make_revision,
     write_bundle,
 )
-from worker.catalog import (
-    CatalogBusy,
-    ingest,
-    operation_status,
-)
-from worker.catalog_backup import (
-    Directory,
-    Azure,
-    backup_catalog,
-    restore_catalog,
-    verify_catalog_backup,
-)
-from worker.catalog_input import load_package
-from worker.catalog_store import CatalogConflict
-from worker.db import database
-from worker.reconciliation import reconcile, report_text
 
 app = typer.Typer(
     help="VisionQ research application commands.",
@@ -65,9 +60,11 @@ def catalog_package(
 
 
 def catalog_store(local_store: Path | None):
-    if local_store is not None:
-        return Directory(local_store)
-    return Azure()
+    if local_store is None:
+        raise ValueError(
+            "M2.T4 requires --local-store; remote catalog backup is not authorized"
+        )
+    return Directory(local_store)
 
 
 def catalog_engine(require_loopback: bool = False):
@@ -506,6 +503,7 @@ def catalog_verify(
             backup_id,
         )
     except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"catalog-verify failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(
         json.dumps(

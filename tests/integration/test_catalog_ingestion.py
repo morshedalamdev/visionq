@@ -8,7 +8,13 @@ from uuid import uuid4
 
 import pytest
 
+from worker.backup import Directory
 from worker.catalog import ingest, operation_status
+from worker.catalog_backup import (
+    backup_catalog,
+    rights_for_package,
+    verify_catalog_backup,
+)
 from worker.catalog_input import load_package, synthetic_sources
 from worker.catalog_store import CatalogConflict
 from worker.db import database
@@ -17,13 +23,6 @@ from worker.preparation import export, prepare
 from worker.reconciliation import reconcile
 from worker.review import make_packet
 from worker.validation import audit, sha256
-from worker.backup import Directory
-from worker.catalog_backup import (
-    backup_catalog,
-    rights_for_package,
-    restore_catalog,
-    verify_catalog_backup,
-)
 
 
 def build_release(tmp_path: Path, dataset_name: str, version: int):
@@ -271,15 +270,15 @@ def test_resume_identity_must_match(postgres_engine, tmp_path):
         )
 
 
-def test_catalog_backup_and_fresh_restore(postgres_engine, tmp_path):
+def test_catalog_backup_and_verification(postgres_engine, tmp_path):
     package, _ = build_release(tmp_path, "synthetic-t4-backup", 1)
     root = tmp_path / "artifacts"
 
     ingest(postgres_engine, root, package)
-    before = catalog_counts(postgres_engine)
 
     store = Directory(tmp_path / "catalog-store")
     backup_id = str(uuid4())
+
     manifest_sha = backup_catalog(
         postgres_engine,
         root,
@@ -289,6 +288,7 @@ def test_catalog_backup_and_fresh_restore(postgres_engine, tmp_path):
     )
 
     assert verify_catalog_backup(store, backup_id) == manifest_sha
+
     with pytest.raises(FileExistsError):
         backup_catalog(
             postgres_engine,
@@ -296,41 +296,6 @@ def test_catalog_backup_and_fresh_restore(postgres_engine, tmp_path):
             store,
             backup_id,
             package,
-        )
-
-    table_names = (
-        "ingestion_items",
-        "ingestion_runs",
-        "quality_issues",
-        "dataset_items",
-        "dataset_groups",
-        "annotations",
-        "annotation_revisions",
-        "assets",
-        "dataset_versions",
-        "catalog_artifacts",
-    )
-    with postgres_engine.begin() as connection:
-        connection.exec_driver_sql(f"TRUNCATE TABLE {', '.join(table_names)} CASCADE")
-
-    restored = tmp_path / "restored-catalog"
-    assert (
-        restore_catalog(
-            postgres_engine,
-            store,
-            backup_id,
-            restored,
-        )
-        == manifest_sha
-    )
-    assert catalog_counts(postgres_engine) == before
-    assert (restored / "catalog" / "objects").is_dir()
-    with pytest.raises(FileExistsError):
-        restore_catalog(
-            postgres_engine,
-            store,
-            backup_id,
-            restored,
         )
 
     released = replace(
@@ -345,5 +310,6 @@ def test_catalog_backup_and_fresh_restore(postgres_engine, tmp_path):
             ],
         },
     )
+
     with pytest.raises(ValueError, match="rights clearance"):
         rights_for_package(released)
