@@ -212,7 +212,9 @@ def ingest(engine, root, package, resume_run=None, hook=None):
         raise CatalogConflict("resume run does not match validated inputs")
 
     if hook is None:
-        hook = lambda stage, asset: None
+
+        def hook(stage, asset):
+            return None
 
     spec = package.specification()
     with writer(engine) as connection:

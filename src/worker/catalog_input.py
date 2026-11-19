@@ -10,8 +10,8 @@ from worker.inventory import canonical_json, inventory
 from worker.preparation import prepare, verify_export
 from worker.review import check_review
 from worker.validation import (
-    CLASSES,
     CLASS_MAP_VERSION,
+    CLASSES,
     audit,
     inspect_pair,
     sha256,
