@@ -1,0 +1,25 @@
+services:
+  db:
+    image: ${PG_IMAGE:?set the existing pinned PostgreSQL image}
+    environment:
+      POSTGRES_DB: visionq_t4_test
+      POSTGRES_USER: visionq_t4_test
+      POSTGRES_PASSWORD: ${VISIONQ_T4_PASSWORD:?set an isolated test password}
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - t4_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          PGPASSWORD="$$POSTGRES_PASSWORD"
+          psql -X -h 127.0.0.1 -U visionq_t4_test -d visionq_t4_test
+          -v ON_ERROR_STOP=1 -Atqc 'SELECT 1' | grep -qx 1
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  t4_pgdata:
