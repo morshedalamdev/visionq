@@ -226,7 +226,17 @@ def test_membership_and_lineage_constraints(catalog):
             identity,
         )
 
-    assert conn.scalar(text("SELECT count(*) FROM dataset_items")) == 1
+    assert (
+        conn.scalar(
+            text("""
+            SELECT count(*)
+            FROM dataset_items
+            WHERE dataset_version_id = :version
+        """),
+            identity,
+        )
+        == 1
+    )
 
 
 def test_identity_constraints(catalog):
