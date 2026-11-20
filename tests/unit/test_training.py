@@ -271,3 +271,18 @@ def test_manifest_records_are_json(tmp_path):
     run = fake_run(tmp_path)
     training.seal_run(run, run / "ultralytics", context())
     assert json.loads((run / training.MANIFEST).read_bytes())["status"] == "complete"
+
+
+def test_staged_data_tamper_and_test_partition_detected(tmp_path):
+    run = fake_run(tmp_path)
+    staged = run / "dataset" / "images" / "train"
+    staged.mkdir(parents=True)
+    (staged / "a.png").write_bytes(b"image")
+    digest = training.seal_run(run, run / "ultralytics", context())
+    (staged / "a.png").write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="artifact mismatch"):
+        training.verify_training(run, digest)
+    (staged / "a.png").write_bytes(b"image")
+    (run / "dataset" / "labels" / "test").mkdir(parents=True)
+    with pytest.raises(ValueError):
+        training.verify_training(run, digest)

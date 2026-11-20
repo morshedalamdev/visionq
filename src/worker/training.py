@@ -3,6 +3,7 @@
 import csv
 import hashlib
 import importlib.util
+import io
 import json
 import logging
 import math
@@ -10,6 +11,7 @@ import os
 import platform
 import resource
 import subprocess
+import sys
 import time
 from datetime import UTC, datetime
 from importlib import metadata
@@ -174,6 +176,153 @@ def safe_output(export, output):
     return target
 
 
+def _check_image(path, width, height):
+    with Image.open(path) as image:
+        image.load()
+        if image.format != "PNG" or image.mode != "RGB":
+            raise ValueError("export image must be RGB PNG")
+        if image.size != (width, height):
+            raise ValueError("image size differs from the release record")
+        red, green, blue = image.split()
+    if (
+        ImageChops.difference(red, green).getbbox()
+        or ImageChops.difference(green, blue).getbbox()
+    ):
+        raise ValueError("grayscale export must have three identical channels")
+
+
+def _label_box(tokens, width, height):
+    if len(tokens) != 5:
+        raise ValueError("label line needs five fields")
+    try:
+        class_id = int(tokens[0])
+        cx, cy, w, h = (float(t) for t in tokens[1:])
+    except ValueError:
+        raise ValueError("label line is not numeric") from None
+    if str(class_id) != tokens[0] or class_id not in range(len(CLASSES)):
+        raise ValueError("invalid class ID in label")
+    if not all(math.isfinite(v) for v in (cx, cy, w, h)):
+        raise ValueError("label coordinates must be finite")
+    if w <= 0 or h <= 0:
+        raise ValueError("label box must have positive size")
+    if min(cx - w / 2, cy - h / 2) < -EPS or max(cx + w / 2, cy + h / 2) > 1 + EPS:
+        raise ValueError("label box lies outside the normalized image")
+    return class_id, [
+        (cx - w / 2) * width,
+        (cy - h / 2) * height,
+        (cx + w / 2) * width,
+        (cy + h / 2) * height,
+    ]
+
+
+def _check_label(path, record):
+    lines = path.read_text().splitlines()
+    if len(lines) != len(record["boxes"]):
+        raise ValueError("label count differs from the release record")
+    classes = []
+    for line, box in zip(lines, record["boxes"], strict=True):
+        class_id, pixels = _label_box(line.split(), record["width"], record["height"])
+        if class_id != box[0] or any(
+            abs(a - b) > 1e-6 for a, b in zip(pixels, box[1:], strict=True)
+        ):
+            raise ValueError("label disagrees with the canonical pixel box")
+        classes.append(class_id)
+    return classes
+
+
+def _expected_yaml():
+    return (
+        "train: images/train\nval: images/validation\ntest: images/test\nnames:\n"
+        + "".join(f"  {i}: {name}\n" for i, name in enumerate(CLASSES))
+    ).encode()
+
+
+def load_release(export, expected_sha):
+    """Return (report, release). Deterministic for unchanged inputs."""
+    export = Path(export).resolve()
+    verified = verify_export(export, expected_sha)
+    release_bytes = (export / "release.json").read_bytes()
+    release = json.loads(release_bytes)
+    if (
+        not isinstance(release, dict)
+        or release.get("schema_version") != 1
+        or release.get("status") != "released"
+    ):
+        raise ValueError("release.json is not a released schema-1 record")
+    plan = release.get("plan")
+    if not isinstance(plan, dict) or not release.get("review_receipt"):
+        raise ValueError("release lacks a plan or review receipt")
+    if plan.get("classes") != list(CLASSES):
+        raise ValueError("class vocabulary differs from the canonical six classes")
+    records = plan.get("records")
+    if not isinstance(records, list) or not records:
+        raise ValueError("release has no records")
+    if (export / "data.yaml").read_bytes() != _expected_yaml():
+        raise ValueError("data.yaml differs from the frozen contract")
+    rows = {r["path"]: r for r in json.loads((export / "manifest.json").read_bytes())}
+    identities = {}
+    for record in records:
+        if record.get("split") not in SPLITS:
+            raise ValueError("unknown split in release record")
+        keys = [
+            record["group_id"],
+            record["asset_id"],
+            record["pixel_sha256"],
+            *(entry["image_sha256"] for entry in record["lineage"]),
+        ]
+        for key in keys:
+            if identities.setdefault(key, record["split"]) != record["split"]:
+                raise ValueError("identity crosses partitions: leakage")
+    assets = [r["asset_id"] for r in records]
+    if len(set(assets)) != len(assets):
+        raise ValueError("duplicate asset ID in release")
+    counts = {s: {"assets": 0, "boxes_per_class": [0] * len(CLASSES)} for s in SPLITS}
+    expected_paths = {"data.yaml", "release.json"}
+    for record in records:
+        split, asset = record["split"], record["asset_id"]
+        image_rel = f"images/{split}/{asset}.png"
+        label_rel = f"labels/{split}/{asset}.txt"
+        if image_rel not in rows or label_rel not in rows:
+            raise ValueError("record file missing from the manifest")
+        expected_paths |= {image_rel, label_rel}
+        _check_image(export / image_rel, record["width"], record["height"])
+        counts[split]["assets"] += 1
+        for class_id in _check_label(export / label_rel, record):
+            counts[split]["boxes_per_class"][class_id] += 1
+    if set(rows) != expected_paths:
+        raise ValueError("export contains files outside the release records")
+    for split in SPLITS:
+        stats = plan["stats"][split]
+        observed = {str(i): n for i, n in enumerate(counts[split]["boxes_per_class"])}
+        if (
+            stats["assets"] != counts[split]["assets"]
+            or stats["boxes_per_class"] != observed
+        ):
+            raise ValueError(f"{split} counts differ from the release statistics")
+        if counts[split]["assets"] == 0 or not all(observed.values()):
+            raise ValueError(f"{split} must contain every class")
+    report = {
+        "tool_version": TOOL_VERSION,
+        "manifest_sha256": expected_sha,
+        "verified_files": verified["verified_files"],
+        "release_sha256": sha256(release_bytes),
+        "review_receipt_sha256": sha256(canonical_json(release["review_receipt"])),
+        "source_manifest_sha256": plan.get("manifest_sha256"),
+        "audit_sha256": plan.get("audit_sha256"),
+        "classes": list(CLASSES),
+        "partitions": counts,
+        "leakage_scope": (
+            "no group, asset, pixel or lineage identity crosses partitions; "
+            "near-duplicate and acquisition independence are not proven here"
+        ),
+    }
+    return report, release
+
+
+def preflight(export, expected_sha):
+    return load_release(export, expected_sha)[0]
+
+
 def stage_view(export, release, dest):
     export, dest = Path(export).resolve(), Path(dest)
     rows = {r["path"]: r for r in json.loads((export / "manifest.json").read_bytes())}
@@ -250,11 +399,7 @@ def artifact_rows(run):
         if path.is_symlink():
             raise ValueError("symlink inside run directory")
         rel = path.relative_to(run).as_posix()
-        if (
-            not path.is_file()
-            or rel.startswith("dataset/")
-            or rel in (MANIFEST, SIDECAR)
-        ):
+        if not path.is_file() or rel in (MANIFEST, SIDECAR):
             continue
         rows.append(
             {"path": rel, "bytes": path.stat().st_size, "sha256": file_sha256(path)}
@@ -315,8 +460,8 @@ def verify_training(run, expected_sha, load=False):
             | {p for p in have if p in want and have[p] != want[p]}
         )
         raise ValueError(f"artifact mismatch: {bad}")
-    for split in ("images", "labels"):
-        if (run / "dataset" / split / "test").exists():
+    for kind in ("images", "labels"):
+        if (run / "dataset" / kind / "test").exists():
             raise ValueError("test partition present in the training view")
     if load:
         require_ml()
@@ -332,6 +477,22 @@ def verify_training(run, expected_sha, load=False):
         "checkpoints": manifest["checkpoints"],
         "loaded": load,
     }
+
+
+class _Tee(io.TextIOBase):
+    """Copy a stream to the original destination and the run log."""
+
+    def __init__(self, original, log):
+        self.original, self.log = original, log
+
+    def write(self, text):
+        self.original.write(text)
+        self.log.write(text)
+        return len(text)
+
+    def flush(self):
+        self.original.flush()
+        self.log.flush()
 
 
 def train_baseline(
@@ -376,8 +537,12 @@ def train_baseline(
     }
     write_new(out / "run-intent.json", canonical_json({**context, "status": "started"}))
     logger = logging.getLogger("ultralytics")
-    handler = logging.FileHandler(out / "train.log")
+    log = (out / "train.log").open("w", buffering=1)
+    handler = logging.StreamHandler(log)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(handler)
+    stdout, stderr = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = _Tee(stdout, log), _Tee(stderr, log)
     try:
         try:
             from ultralytics import YOLO, settings
@@ -393,8 +558,9 @@ def train_baseline(
                 **requested,
             )
         finally:
+            sys.stdout, sys.stderr = stdout, stderr
             logger.removeHandler(handler)
-            handler.close()
+            log.close()
         context["finished_utc"] = datetime.now(UTC).isoformat()
         context["elapsed_seconds"] = round(time.monotonic() - clock, 3)
         context["peak_rss_bytes_macos"] = resource.getrusage(
