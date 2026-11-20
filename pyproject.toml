@@ -27,6 +27,11 @@ dev = [
     "pytest>=8.4,<10",
     "ruff>=0.12,<1",
 ]
+train = [
+    "ultralytics>=8.4.216,<8.5",
+    "torch>=2.8,<3",
+    "torchvision>=0.23,<1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/worker"]

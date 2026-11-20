@@ -514,3 +514,90 @@ def catalog_restore(
             sort_keys=True,
         )
     )
+
+
+def _training_failure(prefix, exc):
+    typer.echo(f"{prefix}: {exc}", err=True)
+    raise typer.Exit(1) from exc
+
+
+@app.command("train-preflight")
+def train_preflight(
+    export: Path = typer.Option(...),
+    manifest_sha: str = typer.Option(...),
+    weights: Path | None = typer.Option(None),
+    weights_sha: str | None = typer.Option(None),
+    device: str | None = typer.Option(None),
+):
+    """Verify a released export and, optionally, weights and device."""
+    from worker.training import check_device, check_weights, environment, preflight
+
+    try:
+        result = {"dataset": preflight(export, manifest_sha)}
+        if weights is not None:
+            if not weights_sha:
+                raise ValueError("--weights-sha is required with --weights")
+            result["weights"] = check_weights(weights, weights_sha)
+        if device is not None:
+            result["device"] = check_device(device)
+        result["environment"] = environment()
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Preflight blocked", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("train-baseline")
+def train_baseline_command(
+    export: Path = typer.Option(...),
+    manifest_sha: str = typer.Option(...),
+    weights: Path = typer.Option(...),
+    weights_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    device: str = typer.Option(...),
+    rights_decision: str = typer.Option(...),
+    label: str = typer.Option("baseline"),
+    epochs: int = typer.Option(60, min=1),
+    batch: int = typer.Option(16, min=1),
+):
+    """Train the YOLO11n baseline on verified train/validation partitions."""
+    from worker.training import train_baseline
+
+    try:
+        result = train_baseline(
+            export,
+            manifest_sha,
+            weights,
+            weights_sha,
+            output,
+            device,
+            rights_decision,
+            label,
+            epochs,
+            batch,
+        )
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Training blocked", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("train-verify")
+def train_verify(
+    run: Path = typer.Option(...),
+    manifest_sha: str = typer.Option(...),
+    load: bool = typer.Option(False),
+    export: Path | None = typer.Option(None),
+    export_sha: str | None = typer.Option(None),
+):
+    """Verify a sealed training run; optionally load checkpoints and re-verify the export."""
+    from worker.preparation import verify_export
+    from worker.training import verify_training
+
+    try:
+        result = verify_training(run, manifest_sha, load)
+        if export is not None:
+            if not export_sha:
+                raise ValueError("--export-sha is required with --export")
+            result["export"] = verify_export(export, export_sha)
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Verification failed", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
