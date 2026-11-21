@@ -644,3 +644,48 @@ def eval_verify(
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         _training_failure("Verification failed", exc)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("eval-test")
+def eval_test(
+    export: Path = typer.Option(...),
+    export_sha: str = typer.Option(...),
+    selection: Path = typer.Option(...),
+    selection_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    device: str = typer.Option(...),
+    real_release_approved: bool = typer.Option(False),
+):
+    """Run the single frozen held-out evaluation from a sealed selection."""
+    from worker.evaluation import evaluate_test
+
+    try:
+        result = evaluate_test(
+            export,
+            export_sha,
+            selection,
+            selection_sha,
+            output,
+            device,
+            real_release_approved,
+        )
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Test evaluation blocked", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("eval-verify-test")
+def eval_verify_test(
+    evaluation: Path = typer.Option(...),
+    evaluation_sha: str = typer.Option(...),
+    export: Path = typer.Option(...),
+    export_sha: str = typer.Option(...),
+):
+    """Verify a sealed test evaluation against its selection and the export."""
+    from worker.evaluation import verify_test_evaluation
+
+    try:
+        result = verify_test_evaluation(evaluation, evaluation_sha, export, export_sha)
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Verification failed", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
