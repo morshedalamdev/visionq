@@ -73,3 +73,18 @@ def test_catalog_verify_missing_local_backup(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "COMPLETE missing" in result.stderr + result.stdout
+
+
+def test_help_lists_inference_commands(tmp_path: Path) -> None:
+    result = run_cli(tmp_path, "--help")
+
+    assert result.returncode == 0, result.stderr
+    for command in (
+        "inference-register-batch",
+        "inference-register-model",
+        "inference-run",
+        "inference-status",
+        "inference-overlays",
+        "inference-reconcile",
+    ):
+        assert command in result.stdout

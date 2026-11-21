@@ -18,6 +18,8 @@ from sqlalchemy import text
 
 from worker.db import database
 
+HEAD_REVISION = "0003_inference"
+
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
@@ -76,8 +78,8 @@ def restore_engine(postgres_engine, monkeypatch):
             if restore.scalar(identity) == shared.scalar(identity):
                 problems.append("restore database is the shared PostgreSQL cluster")
             revision = restore.scalar(text("SELECT version_num FROM alembic_version"))
-        if revision != "0002_catalog":
-            problems.append("restore database must be migrated to 0002_catalog")
+        if revision != HEAD_REVISION:
+            problems.append(f"restore database must be migrated to {HEAD_REVISION}")
 
     if problems:
         engine.dispose()

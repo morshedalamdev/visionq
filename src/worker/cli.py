@@ -736,3 +736,120 @@ def eval_verify_performance(
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         _training_failure("Verification failed", exc)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("inference-register-batch")
+def inference_register_batch(
+    dataset_version_id: str = typer.Option(...),
+    split: str = typer.Option(...),
+    artifact_root: Path = typer.Option(...),
+    asset_id: list[str] = typer.Option([]),
+    kind: str = typer.Option("dataset-split"),
+    real_release_approved: bool = typer.Option(False),
+):
+    """Register an exact immutable image membership for inference."""
+    from worker.inference import register_batch
+
+    with catalog_session("inference-register-batch") as engine:
+        result = register_batch(
+            engine,
+            artifact_root,
+            dataset_version_id,
+            split,
+            asset_id or None,
+            kind,
+            real_release_approved,
+        )
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("inference-register-model")
+def inference_register_model(
+    dataset_version_id: str = typer.Option(...),
+    selection: Path = typer.Option(...),
+    selection_sha: str = typer.Option(...),
+    artifact_root: Path = typer.Option(...),
+    real_release_approved: bool = typer.Option(False),
+):
+    """Verify and register a frozen M3.T2 checkpoint."""
+    from worker.inference import register_model
+
+    with catalog_session("inference-register-model") as engine:
+        result = register_model(
+            engine,
+            artifact_root,
+            dataset_version_id,
+            selection,
+            selection_sha,
+            real_release_approved,
+        )
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("inference-run")
+def inference_run(
+    batch_id: str = typer.Option(...),
+    model_id: str = typer.Option(...),
+    artifact_root: Path = typer.Option(...),
+    device: str = typer.Option(...),
+    resume_run: str | None = typer.Option(None),
+):
+    """Run or resume a deterministic synthetic batch inference operation."""
+    from worker.inference import run_inference
+
+    with catalog_session("inference-run") as engine:
+        report = run_inference(
+            engine,
+            artifact_root,
+            batch_id,
+            model_id,
+            device,
+            resume_run=resume_run,
+        )
+    typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    if not report["ok"]:
+        raise typer.Exit(code=1)
+
+
+@app.command("inference-status")
+def inference_status_command(run_id: str = typer.Option(...)):
+    """Print persisted inference operation and item states."""
+    from worker.inference import inference_status
+
+    with catalog_session("inference-status") as engine:
+        result = inference_status(engine, run_id)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("inference-overlays")
+def inference_overlays(
+    run_id: str = typer.Option(...),
+    artifact_root: Path = typer.Option(...),
+    asset_id: list[str] = typer.Option([]),
+):
+    """Generate overlays solely from persisted boxes."""
+    from worker.detection_overlay import generate_overlays
+
+    with catalog_session("inference-overlays") as engine:
+        result = generate_overlays(
+            engine,
+            artifact_root,
+            run_id,
+            asset_id or None,
+        )
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("inference-reconcile")
+def inference_reconcile(
+    run_id: str = typer.Option(...),
+    artifact_root: Path = typer.Option(...),
+):
+    """Compare persisted inference rows, memberships and artifacts."""
+    from worker.inference import inference_report_text, reconcile_run
+
+    with catalog_session("inference-reconcile") as engine:
+        report = reconcile_run(engine, artifact_root, run_id)
+    typer.echo(inference_report_text(report), nl=False)
+    if not report["ok"]:
+        raise typer.Exit(code=1)
