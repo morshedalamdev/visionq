@@ -8,6 +8,7 @@ ground truth omits "conf". Adapters must convert numpy values to Python types.
 
 import json
 import math
+import statistics
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -704,6 +705,27 @@ TEST_LIMITATIONS = [
     "No healthy-image false-positive rate or production yield is estimable "
     "from this dataset.",
 ]
+PERFORMANCE = "performance.json"
+PERFORMANCE_SIDECAR = "performance.sha256"
+OBSERVATIONS = "performance-observations.json"
+WARMUPS = 10
+OBSERVATION_COUNT = 100
+TIMING_METHOD = (
+    "Batch=1. Warmed sorted test assets in a deterministic cycle. Decode is "
+    "cv2.imread; preprocess is Ultralytics predictor.pre_transform/preprocess; "
+    "inference is predictor.inference; postprocess is predictor.postprocess "
+    "including NMS and result construction. MPS is synchronized before/after "
+    "accelerator-dependent stages. Full-pipeline latency is wall time from "
+    "decode start through synchronized postprocess completion."
+)
+PERFORMANCE_LIMITATIONS = [
+    "Synthetic-development measurements are software evidence only.",
+    "Repeated observations of the same image are not independent images.",
+    "Throughput is sequential batch-size-1 throughput, not concurrent capacity.",
+    "The 100-observation sample is too small for production or hardware claims.",
+    "The MPS runtime can be nondeterministic and is not bit-exact.",
+    "No precision conversion or quantization is performed by this command.",
+]
 
 
 def _best_iou(box, gts, same_class, cls):
@@ -1089,4 +1111,319 @@ def verify_test_evaluation(directory, expected_sha, export, export_sha):
         "map50_95": ap["map50_95"],
         "threshold": frozen["threshold"],
         "evidence_class": saved["evidence_class"],
+    }
+
+
+def summarize_timing(values):
+    if not values:
+        raise ValueError("no timing observations")
+    values = [float(value) for value in values]
+    if not all(math.isfinite(value) and value >= 0 for value in values):
+        raise ValueError("timings must be finite and non-negative")
+    ordered = sorted(values)
+    p95_index = math.ceil(0.95 * len(ordered)) - 1
+    return {
+        "count": len(ordered),
+        "median_ms": statistics.median(ordered),
+        "p95_ms": ordered[p95_index],
+        "min_ms": ordered[0],
+        "max_ms": ordered[-1],
+    }
+
+
+def aggregate_observations(records, expected_count, failures):
+    if failures:
+        raise ValueError(f"{len(failures)} benchmark sample(s) failed")
+    if len(records) != expected_count:
+        raise ValueError(
+            f"incomplete benchmark: {len(records)} of {expected_count} observations"
+        )
+    required = (
+        "decode_ms",
+        "preprocess_ms",
+        "inference_ms",
+        "postprocess_ms",
+        "full_pipeline_ms",
+    )
+    stages = {}
+    for name in required:
+        stages[name.removesuffix("_ms")] = summarize_timing(
+            [record[name] for record in records]
+        )
+    total_seconds = sum(record["full_pipeline_ms"] for record in records) / 1000
+    if total_seconds <= 0:
+        raise ValueError("benchmark elapsed time must be positive")
+    return {
+        "observation_count": len(records),
+        "stages": stages,
+        "throughput_images_per_second": len(records) / total_seconds,
+    }
+
+
+def _sync_device(torch, device):
+    if device.type == "mps":
+        torch.mps.synchronize()
+    elif device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
+def timed_prediction(path, model, predictor, device):
+    """One batch=1 observation with explicit synchronized stage boundaries."""
+    import cv2
+    import torch
+
+    _sync_device(torch, device)
+    started = time.perf_counter()
+    decoded = cv2.imread(str(path), cv2.IMREAD_COLOR)
+    decoded_at = time.perf_counter()
+    if decoded is None:
+        raise ValueError(f"failed to decode {path.name}")
+
+    _sync_device(torch, device)
+    prepared_at = time.perf_counter()
+    tensor = predictor.preprocess([decoded])
+    _sync_device(torch, device)
+    preprocessed_at = time.perf_counter()
+
+    predictions = predictor.inference(tensor)
+    _sync_device(torch, device)
+    inferred_at = time.perf_counter()
+
+    predictor.postprocess(predictions, tensor, [decoded])
+    _sync_device(torch, device)
+    finished = time.perf_counter()
+
+    return {
+        "image": path.stem,
+        "decode_ms": (decoded_at - started) * 1000,
+        "preprocess_ms": (preprocessed_at - prepared_at) * 1000,
+        "inference_ms": (inferred_at - preprocessed_at) * 1000,
+        "postprocess_ms": (finished - inferred_at) * 1000,
+        "full_pipeline_ms": (finished - started) * 1000,
+    }
+
+
+def performance_inputs(evaluation, evaluation_sha, export, export_sha):
+    verification = verify_test_evaluation(
+        evaluation, evaluation_sha, export, export_sha
+    )
+    saved = json.loads((Path(evaluation) / TEST_EVAL).read_bytes())
+    selection_path = Path(saved["selection"]["path"]).resolve()
+    frozen = _frozen(selection_path, saved["selection"]["sha256"])
+    checkpoint = frozen["checkpoint"]
+    if checkpoint["sha256"] != saved["selection"]["checkpoint_sha256"]:
+        raise ValueError("performance checkpoint differs from frozen selection")
+    settings = frozen["predict_settings"]
+    if (
+        settings != saved["operating_evaluation"]["settings"]
+        or saved["operating_evaluation"]["threshold"] != saved["selection"]["threshold"]
+    ):
+        raise ValueError("performance settings differ from frozen evaluation")
+    images = load_split(Path(evaluation) / "dataset", "test")
+    return saved, frozen, images, verification
+
+
+def measure_performance(
+    evaluation,
+    evaluation_sha,
+    export,
+    export_sha,
+    output,
+    device,
+):
+    require_ml()
+    saved, frozen, images, verification = performance_inputs(
+        evaluation, evaluation_sha, export, export_sha
+    )
+    device_info = check_device(device)
+    checkpoint = frozen["checkpoint"]
+    out = safe_output(export, output)
+    protected = (Path(evaluation).resolve(), Path(export).resolve())
+    if any(out.is_relative_to(path) or path.is_relative_to(out) for path in protected):
+        raise ValueError("performance directory must be separate from inputs")
+    out.mkdir(parents=True)
+    started = datetime.now(UTC)
+    clock = time.monotonic()
+    records, failures = [], []
+    try:
+        records, failures, plan, precision = benchmark_checkpoint(
+            checkpoint["path"], images, frozen["predict_settings"], device
+        )
+        summary = aggregate_observations(records, OBSERVATION_COUNT, failures)
+        write_new(
+            out / OBSERVATIONS,
+            canonical_json(
+                {
+                    "method": TIMING_METHOD,
+                    "settings": {
+                        "device": device,
+                        "precision": precision,
+                        "batch": 1,
+                        **frozen["predict_settings"],
+                    },
+                    "warmup_count": WARMUPS,
+                    "plan": plan,
+                    "records": records,
+                    "failed_samples": failures,
+                }
+            ),
+        )
+        result = {
+            "tool_version": EVAL_VERSION,
+            "stage": "performance",
+            "evidence_class": saved["evidence_class"],
+            "evaluation": {
+                "path": str(Path(evaluation).resolve()),
+                "sha256": evaluation_sha,
+            },
+            "selection": {
+                "path": saved["selection"]["path"],
+                "sha256": saved["selection"]["sha256"],
+                "checkpoint": checkpoint["name"],
+                "checkpoint_sha256": checkpoint["sha256"],
+                "threshold": frozen["threshold"],
+            },
+            "dataset": {
+                "manifest_sha256": export_sha,
+                "split_sha_evidence": saved["dataset"]["manifest_sha256"],
+            },
+            "device": device_info,
+            "environment": environment(),
+            "code": code_identity(),
+            "method": TIMING_METHOD,
+            "settings": {
+                "device": device,
+                "precision": precision,
+                "batch": 1,
+                **frozen["predict_settings"],
+                "warmups": WARMUPS,
+            },
+            "measurements": summary,
+            "sampling": {
+                "unique_image_count": plan["unique_image_count"],
+                "timed_observation_count": summary["observation_count"],
+                "repeated_observation_count": plan["repeated_observation_count"],
+                "failed_samples": len(failures),
+                "evaluation_verification": verification,
+            },
+            "started_utc": started.isoformat(),
+            "finished_utc": datetime.now(UTC).isoformat(),
+            "elapsed_seconds": round(time.monotonic() - clock, 3),
+            "limitations": PERFORMANCE_LIMITATIONS,
+            "artifacts": _rows(out, (PERFORMANCE, PERFORMANCE_SIDECAR)),
+        }
+        (out / "summary.md").write_text(
+            f"# VisionQ M3.T2 performance ({saved['evidence_class']})\n\n"
+            f"- Device/precision: {device} / {precision}\n"
+            f"- Unique images: {plan['unique_image_count']}\n"
+            f"- Timed observations: {summary['observation_count']}\n"
+            f"- Repeated observations: {plan['repeated_observation_count']}\n"
+            f"- Model inference median: "
+            f"{summary['stages']['inference']['median_ms']:.3f} ms\n"
+            f"- Model inference p95: "
+            f"{summary['stages']['inference']['p95_ms']:.3f} ms\n"
+            f"- Full pipeline median: "
+            f"{summary['stages']['full_pipeline']['median_ms']:.3f} ms\n"
+            f"- Throughput: "
+            f"{summary['throughput_images_per_second']:.3f} images/s\n\n"
+            "This synthetic result is development evidence only.\n"
+        )
+        result["artifacts"] = _rows(out, (PERFORMANCE, PERFORMANCE_SIDECAR))
+        data = canonical_json(result)
+        digest = sha256(data)
+        write_new(out / PERFORMANCE, data)
+        write_new(out / PERFORMANCE_SIDECAR, (digest + "\n").encode())
+    except BaseException as exc:
+        if not (out / "failure.json").exists():
+            write_new(
+                out / "failure.json",
+                canonical_json(
+                    {
+                        "status": "failed",
+                        "error_type": type(exc).__name__,
+                        "message": str(exc),
+                        "completed_observations": len(records),
+                        "failed_samples": failures,
+                    }
+                ),
+            )
+        raise
+    return {
+        "performance": str(out),
+        "performance_sha256": digest,
+        "evidence_class": saved["evidence_class"],
+        "device": device,
+        "precision": precision,
+        "unique_images": plan["unique_image_count"],
+        "observations": summary["observation_count"],
+        "inference_median_ms": summary["stages"]["inference"]["median_ms"],
+        "inference_p95_ms": summary["stages"]["inference"]["p95_ms"],
+        "throughput_images_per_second": summary["throughput_images_per_second"],
+    }
+
+
+def verify_performance(
+    directory, expected_sha, evaluation, evaluation_sha, export, export_sha
+):
+    directory = Path(directory).resolve()
+    data = (directory / PERFORMANCE).read_bytes()
+    if sha256(data) != expected_sha:
+        raise ValueError("performance checksum mismatch")
+    if (directory / PERFORMANCE_SIDECAR).read_text().strip() != expected_sha:
+        raise ValueError("performance sidecar mismatch")
+    saved = json.loads(data)
+    if saved.get("stage") != "performance" or saved.get("tool_version") != EVAL_VERSION:
+        raise ValueError("not an M3.T2 performance artifact")
+    have = {r["path"]: r for r in _rows(directory, (PERFORMANCE, PERFORMANCE_SIDECAR))}
+    want = {r["path"]: r for r in saved["artifacts"]}
+    if have != want:
+        raise ValueError("performance artifact mismatch")
+    expected_evaluation = verify_test_evaluation(
+        evaluation, evaluation_sha, export, export_sha
+    )
+    if saved["evaluation"]["sha256"] != evaluation_sha:
+        raise ValueError("performance references a different evaluation")
+    evidence = json.loads((Path(evaluation) / TEST_EVAL).read_bytes())
+    frozen = _frozen(
+        Path(evidence["selection"]["path"]), evidence["selection"]["sha256"]
+    )
+    if (
+        saved["selection"]["checkpoint_sha256"] != frozen["checkpoint"]["sha256"]
+        or saved["selection"]["threshold"] != frozen["threshold"]
+        or saved["settings"]["imgsz"] != frozen["predict_settings"]["imgsz"]
+        or saved["settings"]["conf"] != frozen["predict_settings"]["conf"]
+    ):
+        raise ValueError("performance settings differ from the frozen selection")
+    observations = json.loads((directory / OBSERVATIONS).read_bytes())
+    records = observations["records"]
+    failures = observations["failed_samples"]
+    plan = observations["plan"]
+    if observations["settings"] != saved["settings"]:
+        raise ValueError("observation settings differ from the manifest")
+    again = aggregate_observations(records, OBSERVATION_COUNT, failures)
+    if canonical_json(again) != canonical_json(saved["measurements"]):
+        raise ValueError("performance aggregates are not reproducible")
+    if (
+        plan["sequence"]
+        != benchmark_plan(load_split(Path(evaluation) / "dataset", "test"))["sequence"]
+    ):
+        raise ValueError("benchmark sampling order is not reproducible")
+    if plan["unique_image_count"] != saved["sampling"]["unique_image_count"]:
+        raise ValueError("unique-image count mismatch")
+    if (
+        plan["repeated_observation_count"]
+        != saved["sampling"]["repeated_observation_count"]
+    ):
+        raise ValueError("repeated-observation count mismatch")
+    if saved["sampling"]["failed_samples"] != 0:
+        raise ValueError("failed benchmark samples recorded as complete")
+    return {
+        "verified_artifacts": len(have),
+        "performance_sha256": expected_sha,
+        "evaluation_sha256": expected_evaluation["evaluation_sha256"],
+        "unique_images": plan["unique_image_count"],
+        "observations": again["observation_count"],
+        "inference_median_ms": again["stages"]["inference"]["median_ms"],
+        "inference_p95_ms": again["stages"]["inference"]["p95_ms"],
+        "throughput_images_per_second": again["throughput_images_per_second"],
     }

@@ -689,3 +689,50 @@ def eval_verify_test(
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         _training_failure("Verification failed", exc)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("eval-performance")
+def eval_performance(
+    evaluation: Path = typer.Option(...),
+    evaluation_sha: str = typer.Option(...),
+    export: Path = typer.Option(...),
+    export_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    device: str = typer.Option(...),
+):
+    """Benchmark the verified frozen checkpoint without changing evaluation settings."""
+    from worker.evaluation import measure_performance
+
+    try:
+        result = measure_performance(
+            evaluation, evaluation_sha, export, export_sha, output, device
+        )
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Performance measurement blocked", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("eval-verify-performance")
+def eval_verify_performance(
+    performance: Path = typer.Option(...),
+    performance_sha: str = typer.Option(...),
+    evaluation: Path = typer.Option(...),
+    evaluation_sha: str = typer.Option(...),
+    export: Path = typer.Option(...),
+    export_sha: str = typer.Option(...),
+):
+    """Re-verify the benchmark and recompute its timing aggregates."""
+    from worker.evaluation import verify_performance
+
+    try:
+        result = verify_performance(
+            performance,
+            performance_sha,
+            evaluation,
+            evaluation_sha,
+            export,
+            export_sha,
+        )
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Verification failed", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
