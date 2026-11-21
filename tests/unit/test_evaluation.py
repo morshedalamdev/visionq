@@ -38,7 +38,11 @@ def test_one_to_one_greedy_prefers_best_overlap():
     # g1=[0,0,10,10], g2=[5,0,15,10]. High-confidence [4,0,14,10] has IoU 60/140
     # with g1 and 90/110 with g2, so it takes g2; the second box then takes g1.
     g1, g2 = A, [5.0, 0.0, 15.0, 10.0]
-    result = ev.match_image([p(0, 0.9, [4, 0, 14, 10]), p(0, 0.5, g1)], [g1, g2], 0.0)
+    result = ev.match_image(
+        [p(0, 0.9, [4, 0, 14, 10]), p(0, 0.5, g1)],
+        [g(0, g1), g(0, g2)],
+        0.0,
+    )
     assert sorted((m[0], m[1]) for m in result["matches"]) == [(0, 1), (1, 0)]
     assert result["fp"][0] == 0 and result["fn"][0] == 0
 
@@ -68,7 +72,8 @@ def test_prf_and_macro_f1_hand_values():
 def test_unsupported_class_excluded_from_macro_but_fp_counted():
     # class 2 has no truth: its FP counts in micro (tp1 fp1 -> F1 2/3) but not macro.
     result = ev.evaluate_at([([p(0, 0.9, A), p(2, 0.9, A)], [g(0, A)])], 0.5)
-    assert result["per_class"][2]["support"] == 0
+    assert result["per_class"][2]["fp"] == 1
+    assert result["micro"]["fp"] == 1
     assert result["per_class"][2]["f1"] is None
     assert result["macro_f1"] == pytest.approx(1.0)
     assert result["micro"]["f1"] == pytest.approx(2 / 3)

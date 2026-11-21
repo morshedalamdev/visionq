@@ -113,17 +113,23 @@ def evaluate_at(images, threshold, classes=CLASS_COUNT, match_iou=MATCH_IOU):
             tp[c] += result["tp"][c]
             fp[c] += result["fp"][c]
             fn[c] += result["fn"][c]
-    per_class = [
-        {
-            "class_id": c,
-            "support": tp[c] + fn[c],
-            "tp": tp[c],
-            "fp": fp[c],
-            "fn": fn[c],
-            **prf(tp[c], fp[c], fn[c]),
-        }
-        for c in range(classes)
-    ]
+    per_class = []
+    for c in range(classes):
+        support = tp[c] + fn[c]
+        metrics = prf(tp[c], fp[c], fn[c])
+        if support == 0:
+            metrics["f1"] = None
+
+        per_class.append(
+            {
+                "class_id": c,
+                "support": support,
+                "tp": tp[c],
+                "fp": fp[c],
+                "fn": fn[c],
+                **metrics,
+            }
+        )
     supported = [row["f1"] for row in per_class if row["support"] > 0]
     return {
         "threshold": threshold,
