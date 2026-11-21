@@ -2,15 +2,22 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from pathlib import Path
 from threading import Barrier
+from uuid import uuid4
 
 import pytest
 from catalog_support import build_release, catalog_counts
 from sqlalchemy import text
 
 from worker.catalog import ingest, operation_status
+from worker.catalog_input import load_package
 from worker.catalog_store import CatalogBusy, CatalogConflict, writer
 from worker.reconciliation import reconcile
+
+REPO = Path(__file__).resolve().parents[2]
+FROZEN = REPO / "artifacts/m2t3-development/synthetic-only"
+FROZEN_RELEASE = "3ec61196f181354e3a01e57fef44f17446f5c7d555f4cf2fe070078859898125"
 
 
 def test_first_import_and_repeat_are_idempotent(postgres_engine, tmp_path):
@@ -32,6 +39,39 @@ def test_first_import_and_repeat_are_idempotent(postgres_engine, tmp_path):
     assert status["items"]["succeeded"] == len(package.unit_artifacts)
     assert status["items"]["pending"] == 0
     assert status["items"]["failed"] == 0
+
+
+def test_existing_twelve_image_fixture_remains_accepted(postgres_engine, tmp_path):
+    package, _ = build_release(tmp_path, "synthetic-t4-legacy-compatible", 1)
+    assert len(package.rows["dataset_items"]) == 12
+    root = tmp_path / "artifacts"
+    assert ingest(postgres_engine, root, package)["ok"] is True
+
+
+def test_frozen_package_import_and_repeat_are_idempotent(postgres_engine, tmp_path):
+    package = load_package(
+        source=FROZEN / "raw",
+        baseline=FROZEN / "baseline.json",
+        packet=FROZEN / "packet",
+        release=FROZEN / "export-a",
+        release_sha256=FROZEN_RELEASE,
+        dataset_name=f"synthetic-m3t3-frozen-compatible-{uuid4().hex}",
+        version=1,
+    )
+    root = tmp_path / "artifacts"
+
+    first = ingest(postgres_engine, root, package)
+    first_counts = catalog_counts(postgres_engine)
+    second = ingest(postgres_engine, root, package)
+
+    assert first["ok"] is True
+    assert second == first
+    assert catalog_counts(postgres_engine) == first_counts
+    assert len(package.rows["dataset_items"]) == 24
+    assert {
+        split: sum(row["split"] == split for row in package.rows["dataset_items"])
+        for split in ("train", "validation", "test")
+    } == {"train": 17, "validation": 4, "test": 3}
 
 
 def test_interrupted_import_resumes_as_partial_then_succeeds(postgres_engine, tmp_path):

@@ -18,6 +18,17 @@ from worker.validation import (
     validated_boxes,
 )
 
+FROZEN_SOURCE_SHA256 = (
+    "3fec56c052f483a1a3abd3255c74e9f8502e0dd7ba156171852fa61060c7d4dc"
+)
+FROZEN_RELEASE_SHA256 = (
+    "3ec61196f181354e3a01e57fef44f17446f5c7d555f4cf2fe070078859898125"
+)
+FROZEN_AUDIT_SHA256 = "d747b71a20460e471c06e65814d358db061bcf143fba13ef4da098d14e411f5b"
+FROZEN_REVIEW_SHA256 = (
+    "148077f47f8c944883f584d8134522941dbd4fd47b13c029da4b0e12d6db92fb"
+)
+
 
 def identity(kind, value):
     return str(uuid5(NAMESPACE_URL, f"visionq/catalog/v1/{kind}/{value}"))
@@ -72,6 +83,49 @@ class Package:
         }
 
 
+def verified_source_bytes(source, observed, baseline_bytes, baseline_sha256):
+    if baseline_sha256 == FROZEN_SOURCE_SHA256:
+        if len(observed) != 48:
+            raise ValueError("frozen synthetic source membership differs")
+        result = {}
+        for row in observed:
+            path = Path(row["path"])
+            if (
+                path.is_absolute()
+                or ".." in path.parts
+                or not (
+                    path.parts[0] == "IMAGES"
+                    and path.suffix == ".png"
+                    or path.parts[0] == "ANNOTATIONS"
+                    and path.suffix == ".xml"
+                )
+            ):
+                raise ValueError("frozen synthetic source membership differs")
+            data = (source / path).read_bytes()
+            if len(data) != row["bytes"] or sha256(data) != row["sha256"]:
+                raise ValueError("frozen synthetic source bytes differ")
+            result[row["path"]] = data
+        if sha256(canonical_json(observed)) != FROZEN_SOURCE_SHA256:
+            raise ValueError("frozen synthetic source baseline differs")
+        if sha256(baseline_bytes) != FROZEN_SOURCE_SHA256:
+            raise ValueError("frozen synthetic source baseline checksum differs")
+        return result, "frozen-m3t2"
+
+    fixture = synthetic_sources()
+    actual_paths = {row["path"] for row in observed}
+    if actual_paths != set(fixture):
+        raise ValueError("source is not the admitted self-created fixture")
+    for row in observed:
+        expected = fixture[row["path"]]
+        if (
+            row["bytes"] != len(expected)
+            or row["sha256"] != sha256(expected)
+            or (source / row["path"]).read_bytes() != expected
+        ):
+            raise ValueError("source is not the admitted self-created fixture")
+    return fixture, "generated-t4"
+
+
 def load_package(
     source: Path,
     baseline: Path,
@@ -93,20 +147,19 @@ def load_package(
     if canonical_json(observed) != baseline_bytes:
         raise ValueError("source differs from the canonical baseline manifest")
 
-    fixture = synthetic_sources()
-    actual_paths = {row["path"] for row in observed}
-    if actual_paths != set(fixture):
-        raise ValueError("source is not the admitted self-created fixture")
-    for row in observed:
-        expected = fixture[row["path"]]
-        if (
-            row["bytes"] != len(expected)
-            or row["sha256"] != sha256(expected)
-            or (source / row["path"]).read_bytes() != expected
-        ):
-            raise ValueError("source is not the admitted self-created fixture")
+    baseline_sha = sha256(baseline_bytes)
+    source_bytes, source_kind = verified_source_bytes(
+        source, observed, baseline_bytes, baseline_sha
+    )
 
     verify_export(release, release_sha256)
+    if source_kind == "frozen-m3t2":
+        if release_sha256 != FROZEN_RELEASE_SHA256:
+            raise ValueError("frozen synthetic release identity differs")
+        if sha256((packet / "audit.json").read_bytes()) != FROZEN_AUDIT_SHA256:
+            raise ValueError("frozen synthetic audit identity differs")
+        if sha256((packet / "review.json").read_bytes()) != FROZEN_REVIEW_SHA256:
+            raise ValueError("frozen synthetic review identity differs")
     exported = json.loads((release / "release.json").read_bytes())
     if exported.get("schema_version") != 1 or exported.get("status") != "released":
         raise ValueError("unsupported or incomplete export")
@@ -116,6 +169,8 @@ def load_package(
         raise ValueError("export does not bind the current review receipt")
 
     report = json.loads((packet / "audit.json").read_bytes())
+    if report.get("baseline_sha256") != baseline_sha:
+        raise ValueError("audit baseline identity differs")
     revisions = [
         revision
         for item in report["items"].values()
@@ -185,7 +240,7 @@ def load_package(
         categories.setdefault(checksum, set()).add(category)
         return checksum
 
-    for path, data in fixture.items():
+    for path, data in source_bytes.items():
         add_blob(
             data,
             "original_images" if path.startswith("IMAGES/") else "annotations",
@@ -255,8 +310,8 @@ def load_package(
             raise ValueError("group crosses release splits")
 
         base = inspect_pair(
-            fixture[record["source"]],
-            fixture[source_item["xml"]],
+            source_bytes[record["source"]],
+            source_bytes[source_item["xml"]],
             record["source"],
             report["coordinates"],
         )

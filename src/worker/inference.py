@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import math
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from PIL import Image
 from sqlalchemy import MetaData, Table, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 
@@ -133,7 +135,9 @@ def selected_model(selection, selection_sha, real_release_approved=False):
             "checkpoint": checkpoint["name"],
             "predictor": "ultralytics",
             "settings": saved["operating_evaluation"]["settings"],
-            "confidence_threshold": saved["operating_evaluation"]["threshold"],
+            "confidence_threshold": saved["operating_evaluation"]["selected"][
+                "threshold"
+            ],
             "match_iou": saved["operating_evaluation"]["match_iou"],
         },
     }
@@ -415,11 +419,17 @@ class UltralyticsPredictor:
     def __init__(self, checkpoint: Path):
         from ultralytics import YOLO
 
-        self.model = YOLO(str(checkpoint))
+        self._checkpoint_dir = tempfile.TemporaryDirectory(prefix="visionq-inference-")
+        staged = Path(self._checkpoint_dir.name) / "checkpoint.pt"
+        staged.write_bytes(checkpoint.read_bytes())
+        self.model = YOLO(str(staged))
 
     def __call__(self, image: Path, settings, device):
+        with Image.open(image) as source:
+            source.load()
+            decoded = source.convert("RGB")
         boxes = self.model.predict(
-            str(image),
+            decoded,
             device=device,
             verbose=False,
             **settings,

@@ -1,6 +1,11 @@
+import io
 import json
+import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from PIL import Image
 
 from worker import inference
 from worker.inventory import canonical_json
@@ -84,7 +89,7 @@ def test_selected_model_rejects_changed_checkpoint(tmp_path, monkeypatch):
         "dataset": {"manifest_sha256": "c" * 64},
         "operating_evaluation": {
             "settings": {"conf": 0.001},
-            "threshold": 0.07,
+            "selected": {"threshold": 0.07},
             "match_iou": 0.5,
         },
     }
@@ -110,7 +115,7 @@ def test_selected_model_preserves_frozen_runtime_settings(tmp_path, monkeypatch)
         "dataset": {"manifest_sha256": "c" * 64},
         "operating_evaluation": {
             "settings": {"imgsz": 320, "conf": 0.001, "iou": 0.7, "max_det": 300},
-            "threshold": 0.07,
+            "selected": {"threshold": 0.07},
             "match_iou": 0.5,
         },
     }
@@ -124,3 +129,61 @@ def test_selected_model_preserves_frozen_runtime_settings(tmp_path, monkeypatch)
     )
     assert contract["inference_config"]["settings"]["imgsz"] == 320
     assert contract["evidence_kind"] == "synthetic"
+
+
+def test_ultralytics_predictor_decodes_extensionless_content_addressed_image(
+    tmp_path,
+):
+    image = tmp_path / ("f" * 64)
+    stream = io.BytesIO()
+    Image.new("L", (8, 6), 7).save(stream, format="PNG")
+    image.write_bytes(stream.getvalue())
+
+    class Boxes:
+        xyxy = [[1, 2, 3, 4]]
+        conf = [0.8]
+        cls = [2]
+
+        def tolist(self):
+            return list(self)
+
+    class BoxList:
+        def __init__(self):
+            self.xyxy = self._values(Boxes.xyxy)
+            self.conf = self._values(Boxes.conf)
+            self.cls = self._values(Boxes.cls)
+
+        class _values(list):
+            def tolist(self):
+                return list(self)
+
+    class Model:
+        def predict(self, source, **kwargs):
+            assert isinstance(source, Image.Image)
+            assert source.mode == "RGB"
+            return [type("Result", (), {"boxes": BoxList()})()]
+
+    predictor = inference.UltralyticsPredictor.__new__(inference.UltralyticsPredictor)
+    predictor.model = Model()
+
+    assert predictor(image, {"imgsz": 320}, "mps") == [
+        {"cls": 2, "conf": 0.8, "box": [1.0, 2.0, 3.0, 4.0]}
+    ]
+
+
+def test_ultralytics_predictor_stages_extensionless_checkpoint(tmp_path, monkeypatch):
+    checkpoint = tmp_path / ("a" * 64)
+    checkpoint.write_bytes(b"verified-checkpoint")
+    loaded = {}
+
+    def fake_yolo(path):
+        loaded["path"] = Path(path)
+        loaded["data"] = loaded["path"].read_bytes()
+        return object()
+
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=fake_yolo))
+    predictor = inference.UltralyticsPredictor(checkpoint)
+
+    assert predictor.model is not None
+    assert loaded["path"].suffix == ".pt"
+    assert loaded["data"] == checkpoint.read_bytes()
