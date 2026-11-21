@@ -194,10 +194,12 @@ def test_complete_performance_artifact_verifies(tmp_path, monkeypatch):
         )
 
     observation_path = performance / evaluation.OBSERVATIONS
-    observation_path.write_bytes(observation_path.read_bytes() + b" ")
+    observation_path = performance / evaluation.OBSERVATIONS
+    original = observation_path.read_bytes()
+
+    observation_path.write_bytes(original + b" ")
+
     with pytest.raises(ValueError, match="artifact mismatch"):
-        # Restore the observations file to its original state for the next test
-        observation_path.write_bytes(observation_path.read_bytes()[:-1])
         evaluation.verify_performance(
             performance,
             result["performance_sha256"],
@@ -206,3 +208,15 @@ def test_complete_performance_artifact_verifies(tmp_path, monkeypatch):
             export,
             "dataset-sha",
         )
+
+    observation_path.write_bytes(original)
+
+    verified_again = evaluation.verify_performance(
+        performance,
+        result["performance_sha256"],
+        evaluation_dir,
+        "evaluation-sha",
+        export,
+        "dataset-sha",
+    )
+    assert verified_again["observations"] == 100
