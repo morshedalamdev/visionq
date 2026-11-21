@@ -1,11 +1,57 @@
-"""Operating-point metrics and validation-only selection rules (M3.T2).
+"""Operating-point metrics and validation-only selection (M3.T2).
 
-Pure Python with no ML imports, so every rule is testable without a model.
+Matching and selection rules are pure Python and testable without a model;
+Ultralytics is imported lazily inside the adapter functions only.
 Predictions are dicts {"cls": int, "conf": float, "box": [x1, y1, x2, y2]};
 ground truth omits "conf". Adapters must convert numpy values to Python types.
 """
 
+import json
 import math
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+
+from PIL import Image
+
+from worker.inventory import canonical_json
+from worker.training import (
+    MANIFEST,
+    _label_box,
+    check_device,
+    code_identity,
+    environment,
+    file_sha256,
+    load_release,
+    require_ml,
+    safe_output,
+    verify_training,
+    write_new,
+)
+from worker.validation import CLASSES, sha256
+
+EVAL_VERSION = "m3t2-v1"
+SELECTION = "selection.json"
+SIDECAR = "selection.sha256"
+PREDICTIONS = "validation-predictions.json"
+# One low floor serves both AP and the operating sweep; the selected operating
+# threshold is applied only afterwards, offline, and never truncates AP inputs.
+FLOOR = 0.001
+NMS_IOU = 0.7
+MAX_DET = 300
+LIMITATIONS = [
+    "Synthetic fixtures are software evidence only, not research evidence.",
+    "MPS/torch kernels are not guaranteed bit-exact across runs or hosts; "
+    "exact numerical reproducibility is not claimed. The threshold selection "
+    "is deterministic given the saved predictions and is recomputed by verify.",
+    "AP comes from Ultralytics' matcher; operating precision/recall/F1 use "
+    "VisionQ one-to-one matching at IoU 0.5. The two are not reconciled.",
+    "Operating predictions come from predict() (letterbox) while AP comes from "
+    "val() (rect batching); small differences are possible.",
+    "Checkpoint and threshold were chosen on the same validation partition, so "
+    "validation scores are optimistic; held-out data is untouched.",
+    "Acquisition independence beyond exact identities is not proven.",
+]
 
 CLASS_COUNT = 6
 MATCH_IOU = 0.5
@@ -188,4 +234,410 @@ def select_threshold(images, thresholds=THRESHOLDS, classes=CLASS_COUNT):
             }
             for r in results
         ],
+    }
+
+
+def _finite(value, what):
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError(f"invalid {what}: not finite")
+    return value
+
+
+def stage_validation(export, release, dest):
+    """Copy only released validation files, re-hashed against the manifest."""
+    export, dest = Path(export).resolve(), Path(dest)
+    rows = {
+        r["path"]: r["sha256"]
+        for r in json.loads((export / "manifest.json").read_bytes())
+    }
+    count = 0
+    for record in release["plan"]["records"]:
+        if record["split"] != "validation":
+            continue
+        for kind, suffix in (("images", "png"), ("labels", "txt")):
+            rel = f"{kind}/validation/{record['asset_id']}.{suffix}"
+            data = (export / rel).read_bytes()
+            if sha256(data) != rows[rel]:
+                raise ValueError("export changed during staging")
+            target = dest / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        count += 1
+    if not count:
+        raise ValueError("release has no validation assets")
+    # Ultralytics requires a train key even for validation; it is never trained.
+    config = (
+        f"path: {json.dumps(str(dest.resolve()))}\n"
+        "train: images/validation\nval: images/validation\nnames:\n"
+        + "".join(f"  {i}: {name}\n" for i, name in enumerate(CLASSES))
+    )
+    (dest / "data.yaml").write_text(config)
+    return {
+        "root": str(dest.resolve()),
+        "data_yaml_sha256": sha256(config.encode()),
+        "validation_assets": count,
+        "test_partition_staged": False,
+    }
+
+
+def load_validation(root):
+    root = Path(root)
+    items = {}
+    for image in sorted((root / "images" / "validation").glob("*.png")):
+        with Image.open(image) as handle:
+            width, height = handle.size
+        label = root / "labels" / "validation" / f"{image.stem}.txt"
+        gts = []
+        for line in label.read_text().splitlines():
+            cls, box = _label_box(line.split(), width, height)
+            gts.append({"cls": cls, "box": box})
+        items[image.stem] = {"image": image, "gts": gts}
+    if not items:
+        raise ValueError("no validation images staged")
+    return items
+
+
+def support_counts(images):
+    counts = [0] * CLASS_COUNT
+    for item in images.values():
+        for truth in item["gts"]:
+            counts[truth["cls"]] += 1
+    return counts
+
+
+def validate_checkpoint(path, data_yaml, project, name, settings, device):
+    """AP metrics from Ultralytics val() on the validation split only."""
+    from ultralytics import YOLO
+
+    result = YOLO(str(path)).val(
+        data=str(data_yaml),
+        split="val",
+        device=device,
+        plots=False,
+        save_json=False,
+        verbose=False,
+        project=str(project),
+        name=name,
+        exist_ok=False,
+        workers=0,
+        **settings,
+    )
+    box = result.box
+    index = [int(c) for c in box.ap_class_index]
+    ap50 = {c: float(v) for c, v in zip(index, box.ap50, strict=True)}
+    # Ultralytics fills maps[] for absent classes with the overall mAP, so
+    # per-class AP is reported only where the class has ground truth.
+    ap50_95 = {c: float(box.maps[c]) for c in index}
+    return {
+        "map50": float(box.map50),
+        "map50_95": float(box.map),
+        "support": [int(n) for n in result.nt_per_class],
+        "per_class": [
+            {"class_id": c, "ap50": ap50.get(c), "ap50_95": ap50_95.get(c)}
+            for c in range(CLASS_COUNT)
+        ],
+    }
+
+
+def collect_predictions(path, images, settings, device):
+    """Raw predictions at the score floor, converted to the VisionQ schema."""
+    from ultralytics import YOLO
+
+    model = YOLO(str(path))
+    predictions, dropped = {}, 0
+    for stem, item in images.items():
+        boxes = model.predict(
+            str(item["image"]), device=device, verbose=False, **settings
+        )[0].boxes
+        kept = []
+        for box, conf, cls in zip(
+            boxes.xyxy.tolist(), boxes.conf.tolist(), boxes.cls.tolist(), strict=True
+        ):
+            box = [float(v) for v in box]
+            if box[2] <= box[0] or box[3] <= box[1]:
+                dropped += 1
+                continue
+            kept.append({"cls": int(cls), "conf": float(conf), "box": box})
+        predictions[stem] = kept
+    return predictions, dropped
+
+
+def _pairs(images, predictions):
+    if set(predictions) != set(images):
+        raise ValueError("predictions do not cover the staged validation images")
+    return [(predictions[stem], images[stem]["gts"]) for stem in sorted(images)]
+
+
+def _rows(out):
+    rows = []
+    for path in sorted(Path(out).rglob("*")):
+        if path.is_symlink():
+            raise ValueError("symlink inside evaluation directory")
+        rel = path.relative_to(out).as_posix()
+        if not path.is_file() or rel in (SELECTION, SIDECAR):
+            continue
+        rows.append(
+            {"path": rel, "bytes": path.stat().st_size, "sha256": file_sha256(path)}
+        )
+    return rows
+
+
+def verified_inputs(run, run_sha, export, export_sha):
+    run = Path(run).resolve()
+    verify_training(run, run_sha, load=True)
+    manifest = json.loads((run / MANIFEST).read_bytes())
+    if (
+        manifest.get("status") != "complete"
+        or manifest["dataset"]["manifest_sha256"] != export_sha
+    ):
+        raise ValueError("training run does not belong to this dataset release")
+    report, release = load_release(export, export_sha)
+    if report["release_sha256"] != manifest["dataset"]["release_sha256"]:
+        raise ValueError("release identity differs from the training run")
+    expected = report["partitions"]["validation"]["assets"]
+    if manifest["dataset_view"]["staged_assets"]["validation"] != expected:
+        raise ValueError("training view validation membership differs")
+    rows = {r["path"]: r for r in manifest["artifacts"]}
+    candidates = {}
+    for name in CHECKPOINT_ORDER:
+        rel = manifest["checkpoints"].get(name)
+        if rel is None or rel not in rows:
+            raise ValueError(f"missing checkpoint {name}")
+        candidates[name] = {
+            "path": str(run / rel),
+            "relative": rel,
+            "bytes": rows[rel]["bytes"],
+            "sha256": rows[rel]["sha256"],
+        }
+    return manifest, report, release, candidates
+
+
+def select_validation(
+    export,
+    export_sha,
+    run,
+    run_sha,
+    output,
+    device,
+    real_release_approved=False,
+):
+    """Stage A: choose checkpoint and threshold from validation data only."""
+    require_ml()
+    manifest, report, release, candidates = verified_inputs(
+        run, run_sha, export, export_sha
+    )
+    synthetic = all(
+        r.get("categories") == ["synthetic"] for r in release["plan"]["records"]
+    )
+    if not synthetic and not real_release_approved:
+        raise ValueError(
+            "non-synthetic release: selection needs --real-release-approved "
+            "after the M2 release gates are accepted"
+        )
+    device_info = check_device(device)
+    run_dir = Path(run).resolve()
+    out = safe_output(export, output)
+    if out.is_relative_to(run_dir) or run_dir.is_relative_to(out):
+        raise ValueError("evaluation directory must be separate from the run")
+    out.mkdir(parents=True)
+    started = datetime.now(UTC)
+    clock = time.monotonic()
+    try:
+        view = stage_validation(export, release, out / "dataset")
+        images = load_validation(view["root"])
+        truth = support_counts(images)
+        imgsz = manifest["requested"]["imgsz"]
+        predict_settings = {
+            "imgsz": imgsz,
+            "conf": FLOOR,
+            "iou": NMS_IOU,
+            "max_det": MAX_DET,
+        }
+        val_settings = {**predict_settings, "batch": 1}
+        metrics = {}
+        for name, info in candidates.items():
+            result = validate_checkpoint(
+                info["path"],
+                Path(view["root"]) / "data.yaml",
+                out / "ultralytics-val",
+                name,
+                val_settings,
+                device,
+            )
+            _finite(result["map50"], "mAP50")
+            _finite(result["map50_95"], "mAP50-95")
+            for row in result["per_class"]:
+                for key in ("ap50", "ap50_95"):
+                    if row[key] is not None:
+                        _finite(row[key], f"class AP {key}")
+            if result["support"] != truth:
+                raise ValueError("Ultralytics support differs from staged labels")
+            metrics[name] = result
+        chosen = select_checkpoint(
+            {n: {"map50_95": m["map50_95"]} for n, m in metrics.items()}
+        )
+        predictions, dropped = collect_predictions(
+            candidates[chosen]["path"], images, predict_settings, device
+        )
+        write_new(
+            out / PREDICTIONS,
+            canonical_json(
+                {
+                    "checkpoint": chosen,
+                    "settings": predict_settings,
+                    "dropped_degenerate_boxes": dropped,
+                    "images": predictions,
+                }
+            ),
+        )
+        threshold = select_threshold(_pairs(images, predictions))
+        selected = threshold["selected"]
+        summary = (
+            f"# VisionQ M3.T2 validation selection "
+            f"({'synthetic-development' if synthetic else 'real-validation'})\n\n"
+            f"- Dataset manifest: {export_sha}\n"
+            f"- Training manifest: {run_sha}\n"
+            f"- Selected checkpoint: {chosen} "
+            f"(validation mAP50-95 {metrics[chosen]['map50_95']:.6f})\n"
+            f"- Operating threshold: {selected['threshold']} "
+            f"(validation macro-F1 {selected['macro_f1']:.6f}, IoU 0.5)\n"
+            f"- Validation images: {len(images)}\n\n"
+            "Validation only. No held-out test data was used or staged.\n"
+        )
+        (out / "summary.md").write_text(summary)
+        payload = {
+            "tool_version": EVAL_VERSION,
+            "stage": "validation-selection",
+            "evidence_class": (
+                "synthetic-development" if synthetic else "real-validation"
+            ),
+            "selection_rule": SELECTION_RULE,
+            "classes": list(CLASSES),
+            "dataset": report,
+            "dataset_view": view,
+            "training_run": {
+                "path": str(run_dir),
+                "manifest_sha256": run_sha,
+                "label": manifest["label"],
+            },
+            "candidates": {
+                name: {**info, "validation": metrics[name]}
+                for name, info in candidates.items()
+            },
+            "selected_checkpoint": {"name": chosen, **candidates[chosen]},
+            "ap_evaluation": {
+                "source": "Ultralytics val(split='val') on validation only",
+                "settings": val_settings,
+                "operating_threshold_applied": False,
+            },
+            "operating_evaluation": {
+                "source": "VisionQ one-to-one class-aware matching",
+                "settings": predict_settings,
+                "match_iou": MATCH_IOU,
+                "predictions_file": PREDICTIONS,
+                **threshold,
+            },
+            "device": device_info,
+            "environment": environment(),
+            "code": code_identity(),
+            "started_utc": started.isoformat(),
+            "finished_utc": datetime.now(UTC).isoformat(),
+            "elapsed_seconds": round(time.monotonic() - clock, 3),
+            "limitations": LIMITATIONS,
+            "artifacts": _rows(out),
+        }
+        data = canonical_json(payload)
+        digest = sha256(data)
+        write_new(out / SELECTION, data)
+        write_new(out / SIDECAR, (digest + "\n").encode())
+    except BaseException as exc:
+        if not (out / "failure.json").exists():
+            write_new(
+                out / "failure.json",
+                canonical_json(
+                    {
+                        "status": "failed",
+                        "error_type": type(exc).__name__,
+                        "message": str(exc),
+                    }
+                ),
+            )
+        raise
+    return {
+        "selection": str(out),
+        "selection_sha256": digest,
+        "checkpoint": chosen,
+        "threshold": selected["threshold"],
+        "evidence_class": payload["evidence_class"],
+    }
+
+
+def verify_selection(directory, expected_sha):
+    """Independent check: bytes, identities, and a full re-derivation."""
+    directory = Path(directory).resolve()
+    data = (directory / SELECTION).read_bytes()
+    if sha256(data) != expected_sha:
+        raise ValueError("selection checksum mismatch")
+    if (directory / SIDECAR).read_text().strip() != expected_sha:
+        raise ValueError("selection sidecar mismatch")
+    saved = json.loads(data)
+    if saved.get("tool_version") != EVAL_VERSION or (
+        saved.get("stage") != "validation-selection"
+    ):
+        raise ValueError("not a validation selection artifact")
+    if saved["classes"] != list(CLASSES):
+        raise ValueError("class vocabulary mismatch")
+    have = {r["path"]: r for r in _rows(directory)}
+    want = {r["path"]: r for r in saved["artifacts"]}
+    if have != want:
+        bad = sorted(
+            (set(have) ^ set(want))
+            | {p for p in have if p in want and have[p] != want[p]}
+        )
+        raise ValueError(f"artifact mismatch: {bad}")
+    for kind in ("images", "labels"):
+        if (directory / "dataset" / kind / "test").exists():
+            raise ValueError("test partition present in the evaluation view")
+    run = Path(saved["training_run"]["path"])
+    if (
+        sha256((run / MANIFEST).read_bytes())
+        != saved["training_run"]["manifest_sha256"]
+    ):
+        raise ValueError("training manifest changed since selection")
+    for info in saved["candidates"].values():
+        if file_sha256(info["path"]) != info["sha256"]:
+            raise ValueError("checkpoint checksum mismatch")
+    ap = saved["ap_evaluation"]
+    if ap["operating_threshold_applied"] or ap["settings"]["conf"] != FLOOR:
+        raise ValueError("AP evaluation was truncated by an operating threshold")
+    for name, info in saved["candidates"].items():
+        _finite(info["validation"]["map50"], "mAP50")
+        _finite(info["validation"]["map50_95"], "mAP50-95")
+    chosen = select_checkpoint(
+        {
+            n: {"map50_95": c["validation"]["map50_95"]}
+            for n, c in saved["candidates"].items()
+        }
+    )
+    if (
+        chosen != saved["selected_checkpoint"]["name"]
+        or saved["selected_checkpoint"]["sha256"]
+        != saved["candidates"][chosen]["sha256"]
+    ):
+        raise ValueError("checkpoint selection is not reproducible")
+    images = load_validation(directory / "dataset")
+    predictions = json.loads((directory / PREDICTIONS).read_bytes())["images"]
+    again = select_threshold(_pairs(images, predictions))
+    op = saved["operating_evaluation"]
+    if canonical_json(again["selected"]) != canonical_json(op["selected"]) or (
+        canonical_json(again["search"]) != canonical_json(op["search"])
+    ):
+        raise ValueError("threshold selection is not reproducible")
+    return {
+        "verified_artifacts": len(have),
+        "selection_sha256": expected_sha,
+        "checkpoint": chosen,
+        "threshold": op["selected"]["threshold"],
+        "evidence_class": saved["evidence_class"],
     }

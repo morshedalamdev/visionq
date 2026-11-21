@@ -601,3 +601,46 @@ def train_verify(
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         _training_failure("Verification failed", exc)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("eval-select")
+def eval_select(
+    export: Path = typer.Option(...),
+    export_sha: str = typer.Option(...),
+    run: Path = typer.Option(...),
+    run_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    device: str = typer.Option(...),
+    real_release_approved: bool = typer.Option(False),
+):
+    """Choose checkpoint and operating threshold from validation data only."""
+    from worker.evaluation import select_validation
+
+    try:
+        result = select_validation(
+            export,
+            export_sha,
+            run,
+            run_sha,
+            output,
+            device,
+            real_release_approved,
+        )
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Selection blocked", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+@app.command("eval-verify")
+def eval_verify(
+    selection: Path = typer.Option(...),
+    selection_sha: str = typer.Option(...),
+):
+    """Verify a sealed validation selection and re-derive its choices."""
+    from worker.evaluation import verify_selection
+
+    try:
+        result = verify_selection(selection, selection_sha)
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        _training_failure("Verification failed", exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
