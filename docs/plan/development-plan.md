@@ -1,6 +1,13 @@
 # Development plan from zero to submission
 
-The owner revised the execution order on **17 November 2026**. M1.T1 is complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`. **M2 — Dataset Ingestion and Validation** is next, starting at **M2.T1**. M1.T3 is deferred until the local core is ready for real AI integration. Its four checks and the M1 module gate are pending. The [task register](../agent/TASK_LOG.md) preserves the underlying evidence.
+The owner revised the execution order on **17 November 2026**. M1.T1 is
+complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`.
+M2/M3 synthetic development has advanced, but the M2 real release and the
+real-data M3 gate remain open. The next model-independent implementation task is
+**M4.T1 — canonical analytics contracts**. M1.T3 is deferred until the local
+core is ready for real AI integration. Its four checks and the M1 module gate
+are pending. The [task register](../agent/TASK_LOG.md) preserves the underlying
+evidence.
 
 Complete the project and report by **30 November 2026**, then rehearse in December for the approximate second-week defense. An earlier official submission date takes precedence. The November 13 forecast of 152–196 focused hours covered all 22 tasks across six modules. The earlier module windows have been superseded. The task sizes below are original estimates, and the November 28–29 report dates in M6 are internal targets. Use measured throughput and remaining work to revise the forecast at each handoff. The deadline is at risk if the real-model checks need hardware or configuration changes.
 
@@ -10,7 +17,17 @@ Build the pipeline, detector, database-backed analytics, dashboard and integrati
 
 Follow the [guided workflow](../agent/WORKFLOW.md). The user implements and tests. Codex explains the purpose, placement and behavior of every file in ordered code sections. Use one chat per module and one active task at a time. Record passing results from the applied code before starting the next task. Missing, skipped or failed required checks keep the task open.
 
-Two handoffs in the revised order leave a module open. After verified M1.T1/T2, park M1 and open the M2 chat. After the M3 gate, the M4 chat handles M4.T1 followed by M4.T4. Once both pass, park M4, resume the original M1 chat for M1.T3 and run the M1 integration/regression gate. Then resume the original M4 chat for M4.T2, M4.T3 and its integration/regression gate. The other modules close in the usual order once all task and module checks pass. Capture report and learning notes within each active task. The user opens or returns to the appropriate chat.
+Two handoffs in the revised order leave a module open. After verified M1.T1/T2,
+park M1 and open the M2 chat. On 21 November, the owner authorized the
+model-independent M4.T1 kickoff after M3 synthetic-development completion while
+retaining the real M3 gate as blocked. M4.T1 can use only labeled synthetic
+database evidence. After M4.T1, the plan returns to the outstanding M2/M3 real
+release and acceptance work rather than silently treating that gate as passed.
+Once the local M4.T1/T4 work is complete, resume the original M1 chat for M1.T3
+and the M1 integration/regression gate, then resume M4.T2/T4 and the M4
+integration gate. The other modules close in the usual order once all task and
+module checks pass. Capture report and learning notes within each active task.
+The user opens or returns to the appropriate chat.
 
 ## Module 1 Foundation and feasibility
 
@@ -54,6 +71,15 @@ The M2 module gate requires released dataset v1, a verified importer and frozen 
 
 Original estimate 18–24 hours excluding unattended training. Start after all M2 task and module gates pass. Develop and run the YOLO11n baseline on the measured Mac device. Record hardware, training configuration and checkpoint/prediction backups. Revisit device fit with the Architecture chat if measurements require a change.
 
+**M3 status (21 November 2026): synthetic-development complete; real-data module
+gate blocked.** M3.T1/T2/T3 pass the local synthetic training, frozen evaluation,
+schema, persistence, restart, overlay and MPS smoke gates. The actual smoke used
+the exact frozen 24-image M2 development release and preserved two failed attempts
+before a successful third-attempt resume. Evidence and checksums are in
+`TASK_LOG.md`. This does not release NEU-DET, establish real-model feasibility or
+close M3: M2.T3 real release/freeze, real training/evaluation, real persisted
+snapshots and hosted CI remain pending.
+
 | Task | Work and deliverable | Done when |
 |---|---|---|
 | M3.T1 | Fine-tune YOLO11n baseline, log seeds/config/environment/checkpoints and validation learning curves | At least one valid trained model exists with complete provenance; leakage and conversion checks pass |
@@ -64,7 +90,16 @@ The M3 module gate requires the frozen detector and persisted prediction snapsho
 
 ## Module 4 Analytics RAG and MCP
 
-Original estimate 24–30 hours. After M3 closes, run **M4.T1 → M4.T4** on the Mac. T1 supplies the metric and evidence contracts for the real history/performance UI. T4 can build the agent/evidence view against explicitly labeled fixtures, including the integration contracts it consumes. Keep real detector measurements traceable to stored evaluation runs. T2 and T3 stay pending while the original M1 chat verifies the models. After M1.T3 and M1 closure, run **M4.T2 → M4.T3**, then the M4 module gate. The production contracts apply on both hosts.
+Original estimate 24–30 hours. Synthetic M3 development is complete, so begin
+the model-independent **M4.T1** implementation on the Mac using labeled synthetic
+database evidence. The full M3 real-data gate remains open and must be resumed
+after M2.T3 real release/freeze. T1 supplies the metric and evidence contracts
+for the real history/performance UI. T4 can build the agent/evidence view against
+explicitly labeled fixtures, including the integration contracts it consumes.
+Keep real detector measurements traceable to stored evaluation runs. T2 and T3
+stay pending while the original M1 chat verifies the models. After M1.T3 and M1
+closure, run **M4.T2 → M4.T3**, then the M4 module gate. The production
+contracts apply on both hosts.
 
 | Task | Work and deliverable | Done when |
 |---|---|---|
@@ -73,6 +108,30 @@ Original estimate 24–30 hours. After M3 closes, run **M4.T1 → M4.T4** on the
 | M4.T3 | Expose the five analytics/retrieval tools through the MCP server with read-only permissions and limits | The actual MCP client discovers and calls all tools; invalid scope, unapproved operation and timeout tests pass |
 | M4.T4 | Build dataset/quality, inspection/overlay and persistent history/performance views; define the agent/evidence page using clearly labeled contract fixtures until M5 | Browse/filter/reopen stored runs and compare precision/recall/mAP percentages on labeled evaluation data; unlabeled accuracy is unavailable, confidence is distinct; chart values trace to sources and survive restart; no fixture is presented as live AI |
 
+### M4.T1 kickoff
+
+Implement only M4.T1. Reuse the M3 synthetic inference snapshot and existing
+catalog/inference constraints; do not add a UI, retrieval index, MCP server or
+LLM integration in this task.
+
+Required implementation shape:
+
+1. one canonical analytics domain/service boundary;
+2. parameterized, scoped SQL for the authoritative metric catalogue and explicit
+   `pending`, `running`, `succeeded` and `failed` coverage;
+3. a repeatable-read, API-owned snapshot containing metric, scope, provenance,
+   threshold and dataset/run identity evidence;
+4. immutable evidence persistence with a stable canonical SHA-256;
+5. explicit left/right batch-run comparison compatibility and deterministic
+   deltas;
+6. independent hand-calculated fixtures covering zero denominator, zero boxes,
+   partial runs, same asset across versions/runs, class filtering and concurrent
+   state changes.
+
+Required M4.T1 gate: hand calculations equal service outputs; an existing
+snapshot survives concurrent run/quality mutations unchanged; incompatible
+comparisons fail; shared assets remain separate across scope IDs; evidence
+persistence failure is explicit; focused and strict PostgreSQL regressions pass.
 At M4 closure, reconcile real database metrics, UI history and evidence with live embedding retrieval, citations and all five bounded MCP tools. A fixture-backed adapter can test wiring during core development. Only actual service results satisfy retrieval, MCP integration and AI evaluation requirements. M5.T1 connects the live agent and saved AI-answer history.
 
 ## Module 5 Local agent and LLM research
@@ -105,8 +164,9 @@ Original estimate 32–42 hours including Azure recovery/operations evidence. St
 |---|---|---|
 | Completed M1.T1 → M1.T2 | Foundation closeout, eight T2 gates and CI in the task register | Scope, hardware and setup record |
 | Next M2.T1 → T2 → T3 → T4 → M2 gate | Observed factsheet, validated annotations, split release, resumable ingest and restore | Dataset, lineage and quality findings |
-| M3.T1 → T2 → T3 → M3 gate | Frozen YOLO11n and persisted prediction snapshots | Detector methods and results |
-| M4.T1 → M4.T4, then park M4 | Metric snapshots, real run history/performance and fixture-labeled AI view | Database and UI evidence |
+| M3 synthetic T1 → T2 → T3 complete; real M3 gate open | Frozen synthetic YOLO11n and persisted prediction snapshots; M2 real release still blocks real acceptance | Detector software methods and synthetic-development results |
+| M4.T1 using labeled synthetic evidence, then reassess real M2/M3 gate | Metric snapshots and paired-scope contracts without model services | Database analytics evidence |
+| M4.T4, then park M4 | Real run history/performance structure and fixture-labeled AI view | Database and UI evidence |
 | Resume M1.T3 → M1 gate | Two verified Docker services, real retrieval and MCP metric probe, five timed VM questions, local offline restart | Feasibility limits, resource use and cost |
 | Resume M4.T2 → M4.T3 → M4 gate | Rebuildable real index, working bounded MCP service and evidence-linked UI | Retrieval and tool contracts |
 | M5 → M5 gate | Agent integration, frozen benchmark, three evaluated arms and same-draft ablation | LLM methods, grading and failure analysis |
