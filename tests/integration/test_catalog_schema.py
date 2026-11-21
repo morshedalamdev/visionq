@@ -33,8 +33,9 @@ def connection():
                 assert conn.scalar(text("SELECT current_database()")) == (
                     "visionq_t4_test"
                 )
-                assert conn.scalar(text("SELECT version_num FROM alembic_version")) == (
-                    "0003_inference"
+                assert (
+                    conn.scalar(text("SELECT version_num FROM alembic_version"))
+                    == "0004_analytics"
                 )
                 yield conn
             finally:

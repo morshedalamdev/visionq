@@ -23,7 +23,11 @@ model-independent M4.T1 kickoff after M3 synthetic-development completion while
 retaining the real M3 gate as blocked. M4.T1 can use only labeled synthetic
 database evidence. After M4.T1, the plan returns to the outstanding M2/M3 real
 release and acceptance work rather than silently treating that gate as passed.
-Once the local M4.T1/T4 work is complete, resume the original M1 chat for M1.T3
+M4.T1 passed its local synthetic-development gate on 21 November with canonical
+metrics, comparisons, repeatable-read snapshots, API ownership and immutable
+evidence. Reassess M2.T3 and the real M3 gate before resuming later model and
+dashboard work. Once the local M4.T1/T4 work is complete, resume the original
+M1 chat for M1.T3
 and the M1 integration/regression gate, then resume M4.T2/T4 and the M4
 integration gate. The other modules close in the usual order once all task and
 module checks pass. Capture report and learning notes within each active task.
@@ -90,8 +94,8 @@ The M3 module gate requires the frozen detector and persisted prediction snapsho
 
 ## Module 4 Analytics RAG and MCP
 
-Original estimate 24–30 hours. Synthetic M3 development is complete, so begin
-the model-independent **M4.T1** implementation on the Mac using labeled synthetic
+Original estimate 24–30 hours. Synthetic M3 development and the M4.T1
+local synthetic-development gate are complete. M4.T1 used labeled synthetic
 database evidence. The full M3 real-data gate remains open and must be resumed
 after M2.T3 real release/freeze. T1 supplies the metric and evidence contracts
 for the real history/performance UI. T4 can build the agent/evidence view against
@@ -108,11 +112,17 @@ contracts apply on both hosts.
 | M4.T3 | Expose the five analytics/retrieval tools through the MCP server with read-only permissions and limits | The actual MCP client discovers and calls all tools; invalid scope, unapproved operation and timeout tests pass |
 | M4.T4 | Build dataset/quality, inspection/overlay and persistent history/performance views; define the agent/evidence page using clearly labeled contract fixtures until M5 | Browse/filter/reopen stored runs and compare precision/recall/mAP percentages on labeled evaluation data; unlabeled accuracy is unavailable, confidence is distinct; chart values trace to sources and survive restart; no fixture is presented as live AI |
 
-### M4.T1 kickoff
+### M4.T1 local synthetic closeout
 
-Implement only M4.T1. Reuse the M3 synthetic inference snapshot and existing
+M4.T1 reused the M3 synthetic inference snapshot and existing
 catalog/inference constraints; do not add a UI, retrieval index, MCP server or
 LLM integration in this task.
+
+Implementation is recorded at `artifacts/m4t1-local-20261121/evidence.json`:
+migration `0004_analytics`, canonical metrics and API-owned repeatable-read
+snapshots pass on synthetic fixtures, immutable hashes survive concurrent
+quality changes, and the full strict suite reports 255 passing tests. This is
+local synthetic-development evidence, not real NEU-DET or live-model acceptance.
 
 Required implementation shape:
 

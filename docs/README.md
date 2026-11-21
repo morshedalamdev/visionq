@@ -1,6 +1,12 @@
 # VisionQ thesis project documentation
 
-Last updated: **17 November 2026**. **Next: M2 — Dataset Ingestion and Validation, starting with M2.T1 on the Mac.** M1.T1 is complete under its recorded scope; M1.T2 passed all eight checks at `81f563a`. M1.T3 is deferred and the M1 integration gate remains open. See the [development sequence](plan/development-plan.md) and [task evidence](agent/TASK_LOG.md).
+Last updated: **21 November 2026**. M1.T1 is complete under its recorded scope;
+M1.T2 passed all eight checks at `81f563a`. M1.T3 is deferred and the M1
+integration gate remains open. M4.T1 passed its local synthetic-development
+gate at `fc60a381` with 255 strict tests; the next work is to reassess and
+complete the blocked M2.T3/M3 real-data gates before later M4 live-model work.
+See the [development sequence](plan/development-plan.md) and
+[task evidence](agent/TASK_LOG.md).
 
 VisionQ will combine an industrial image data pipeline, a small supervised defect detector, and a self-hosted LLM agent that answers questions using database evidence and retrieved documents. The LLM is a main research contribution; RAG and a bounded MCP tool server support it. The reference Docker stack will run on an on-demand Azure VM with private Blob backups and a verified local fallback. Resumed M1.T3 must demonstrate that separate private vLLM containers for Qwen generation and EmbeddingGemma retrieval work together on Azure and can restart offline on the Mac.
 

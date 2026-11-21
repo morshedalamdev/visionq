@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from worker.db import database
 
-HEAD_REVISION = "0003_inference"
+HEAD_REVISION = "0004_analytics"
 
 
 @pytest.hookimpl(hookwrapper=True)

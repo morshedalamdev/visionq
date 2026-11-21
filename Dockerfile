@@ -4,7 +4,7 @@ WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH" \
     UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock README.md LICENSE alembic.ini ./
-COPY src/worker/ ./src/worker/
+COPY src/ ./src/
 COPY migrations/ ./migrations/
 RUN uv sync --locked --no-dev --no-editable --python /usr/local/bin/python
 CMD ["visionq", "info"]
