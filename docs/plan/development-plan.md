@@ -3,8 +3,9 @@
 The owner revised the execution order on **17 November 2026**. M1.T1 is
 complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`.
 M2/M3 synthetic development has advanced, but the M2 real release and the
-real-data M3 gate remain open. The next model-independent implementation task is
-**M4.T1 — canonical analytics contracts**. M1.T3 is deferred until the local
+real-data M3 gate remain open. M4.T1 and M4.T2 pass local
+synthetic-development implementation; the next M4 implementation task is
+M4.T3 with the same local/live distinction. M1.T3 is deferred until the local
 core is ready for real AI integration. Its four checks and the M1 module gate
 are pending. The [task register](../agent/TASK_LOG.md) preserves the underlying
 evidence.
@@ -25,13 +26,16 @@ database evidence. After M4.T1, the plan returns to the outstanding M2/M3 real
 release and acceptance work rather than silently treating that gate as passed.
 M4.T1 passed its local synthetic-development gate on 21 November with canonical
 metrics, comparisons, repeatable-read snapshots, API ownership and immutable
-evidence. Reassess M2.T3 and the real M3 gate before resuming later model and
-dashboard work. Once the local M4.T1/T4 work is complete, resume the original
-M1 chat for M1.T3
-and the M1 integration/regression gate, then resume M4.T2/T4 and the M4
-integration gate. The other modules close in the usual order once all task and
-module checks pass. Capture report and learning notes within each active task.
-The user opens or returns to the appropriate chat.
+evidence. Local implementation of M4.T2/M4.T3 is authorized with deterministic
+fixtures and replaceable model adapters; live integration and acceptance remain
+blocked until M1.T3 verifies the real embedding and generation services. Reassess
+M2.T3 and the real M3 gate separately; do not let fixture-backed M4 success
+silently close those real-data gates. Once local M4 implementation is complete,
+resume the original M1 chat for M1.T3 and the M1 integration/regression gate,
+then run live M4 retrieval/MCP integration and the M4 module gate. The other
+modules close in the usual order once all task and module checks pass. Capture
+report and learning notes within each active task. The user opens or returns to
+the appropriate chat.
 
 ## Module 1 Foundation and feasibility
 
@@ -100,10 +104,12 @@ database evidence. The full M3 real-data gate remains open and must be resumed
 after M2.T3 real release/freeze. T1 supplies the metric and evidence contracts
 for the real history/performance UI. T4 can build the agent/evidence view against
 explicitly labeled fixtures, including the integration contracts it consumes.
-Keep real detector measurements traceable to stored evaluation runs. T2 and T3
-stay pending while the original M1 chat verifies the models. After M1.T3 and M1
-closure, run **M4.T2 → M4.T3**, then the M4 module gate. The production
-contracts apply on both hosts.
+Keep real detector measurements traceable to stored evaluation runs. M4.T2/T3
+local implementation may use labeled deterministic fixtures and replaceable
+model/service adapters. Their live acceptance checks stay blocked until M1.T3
+verifies the pinned services. After local T2/T3 code passes, resume M1.T3 for
+service verification, then run the remaining live M4 integration and module
+gate. The production contracts apply on both hosts.
 
 | Task | Work and deliverable | Done when |
 |---|---|---|
@@ -142,6 +148,25 @@ Required M4.T1 gate: hand calculations equal service outputs; an existing
 snapshot survives concurrent run/quality mutations unchanged; incompatible
 comparisons fail; shared assets remain separate across scope IDs; evidence
 persistence failure is explicit; focused and strict PostgreSQL regressions pass.
+
+### M4.T2 local synthetic closeout
+
+M4.T2 may be implemented and verified locally before M1.T3. Local passage search
+uses labeled deterministic fixtures through the same typed interface as the
+future private EmbeddingGemma adapter. This passes software, isolation,
+integrity and citation contracts only. Actual retrieval quality, model identity,
+768-dimensional output, prefixes and Azure endpoint behavior remain live
+acceptance checks blocked until M1.T3. No fixture result approves the production
+corpus or substitutes for real model evidence.
+
+The 21 November local gate passed using isolated synthetic documents and the
+deterministic `visionq-hash-unigram-v1` backend. Migration `0005_retrieval`,
+manifest/chunking/adapters, exact pgvector search, citations, interruption
+resume, profile/version isolation and API validation passed 279 strict tests.
+Evidence is recorded at `artifacts/m4t2-local-20261121/evidence.json`.
+EmbeddingGemma identity, 768-dimensional vectors, real prefixes, relevance and
+live endpoint behavior are still NOT_RUN.
+
 At M4 closure, reconcile real database metrics, UI history and evidence with live embedding retrieval, citations and all five bounded MCP tools. A fixture-backed adapter can test wiring during core development. Only actual service results satisfy retrieval, MCP integration and AI evaluation requirements. M5.T1 connects the live agent and saved AI-answer history.
 
 ## Module 5 Local agent and LLM research

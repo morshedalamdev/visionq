@@ -35,7 +35,7 @@ def connection():
                 )
                 assert (
                     conn.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "0004_analytics"
+                    == "0005_retrieval"
                 )
                 yield conn
             finally:

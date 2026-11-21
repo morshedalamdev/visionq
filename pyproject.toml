@@ -14,7 +14,9 @@ dependencies = [
     "azure-storage-blob>=12.25,<13",
     "defusedxml>=0.7.1,<0.8",
     "fastapi>=0.115,<1",
+    "httpx>=0.28,<1",
     "pillow>=13,<14",
+    "pydantic>=2.11,<3",
     "psycopg[binary]>=3.2,<4",
     "sqlalchemy>=2.0,<3",
     "typer>=0.16,<1",
@@ -36,7 +38,7 @@ train = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/analytics", "src/api", "src/worker"]
+packages = ["src/analytics", "src/api", "src/retrieval", "src/worker"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
