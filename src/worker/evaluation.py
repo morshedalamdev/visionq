@@ -1134,6 +1134,8 @@ def summarize_timing(values):
 def aggregate_observations(records, expected_count, failures):
     if failures:
         raise ValueError(f"{len(failures)} benchmark sample(s) failed")
+    if not records:
+        raise ValueError("no timing observations")
     if len(records) != expected_count:
         raise ValueError(
             f"incomplete benchmark: {len(records)} of {expected_count} observations"
@@ -1203,6 +1205,77 @@ def timed_prediction(path, model, predictor, device):
     }
 
 
+def benchmark_plan(images, observation_count=OBSERVATION_COUNT, warmups=WARMUPS):
+    names = sorted(images)
+    if not names:
+        raise ValueError("no unique images")
+    if observation_count < 1:
+        raise ValueError("observation_count must be positive")
+    if warmups < 0:
+        raise ValueError("warmups must be non-negative")
+    sequence = [names[index % len(names)] for index in range(observation_count)]
+    warmup_sequence = [names[index % len(names)] for index in range(warmups)]
+    return {
+        "unique_image_count": len(names),
+        "warmup_count": warmups,
+        "observation_count": len(sequence),
+        "repeated_observation_count": len(sequence) - len(set(sequence)),
+        "warmup_sequence": warmup_sequence,
+        "sequence": sequence,
+    }
+
+
+def benchmark_checkpoint(
+    checkpoint,
+    images,
+    settings,
+    device,
+    observation_count=OBSERVATION_COUNT,
+    warmups=WARMUPS,
+):
+    """Initialize Ultralytics and run a deterministic batch-size-1 benchmark."""
+    from ultralytics import YOLO
+
+    plan = benchmark_plan(images, observation_count, warmups)
+    model = YOLO(str(checkpoint))
+    first = images[plan["sequence"][0]]["image"]
+    model.predict(
+        str(first),
+        device=device,
+        batch=1,
+        verbose=False,
+        **settings,
+    )
+    predictor = model.predictor
+    if predictor is None:
+        raise RuntimeError("Ultralytics did not initialize its predictor")
+
+    failures = []
+    for index, stem in enumerate(plan["warmup_sequence"]):
+        try:
+            timed_prediction(images[stem]["image"], model, predictor, predictor.device)
+        except Exception as exc:
+            failures.append(
+                {"phase": "warmup", "index": index, "image": stem, "error": str(exc)}
+            )
+    if failures:
+        return [], failures, plan, "float16" if predictor.model.fp16 else "float32"
+
+    records = []
+    for index, stem in enumerate(plan["sequence"]):
+        try:
+            record = timed_prediction(
+                images[stem]["image"], model, predictor, predictor.device
+            )
+            records.append({"index": index, **record})
+        except Exception as exc:
+            failures.append(
+                {"phase": "timed", "index": index, "image": stem, "error": str(exc)}
+            )
+    precision = "float16" if predictor.model.fp16 else "float32"
+    return records, failures, plan, precision
+
+
 def performance_inputs(evaluation, evaluation_sha, export, export_sha):
     verification = verify_test_evaluation(
         evaluation, evaluation_sha, export, export_sha
@@ -1250,17 +1323,19 @@ def measure_performance(
             checkpoint["path"], images, frozen["predict_settings"], device
         )
         summary = aggregate_observations(records, OBSERVATION_COUNT, failures)
+        benchmark_settings = {
+            "device": device,
+            "precision": precision,
+            "batch": 1,
+            **frozen["predict_settings"],
+            "warmups": WARMUPS,
+        }
         write_new(
             out / OBSERVATIONS,
             canonical_json(
                 {
                     "method": TIMING_METHOD,
-                    "settings": {
-                        "device": device,
-                        "precision": precision,
-                        "batch": 1,
-                        **frozen["predict_settings"],
-                    },
+                    "settings": benchmark_settings,
                     "warmup_count": WARMUPS,
                     "plan": plan,
                     "records": records,
@@ -1291,13 +1366,7 @@ def measure_performance(
             "environment": environment(),
             "code": code_identity(),
             "method": TIMING_METHOD,
-            "settings": {
-                "device": device,
-                "precision": precision,
-                "batch": 1,
-                **frozen["predict_settings"],
-                "warmups": WARMUPS,
-            },
+            "settings": benchmark_settings,
             "measurements": summary,
             "sampling": {
                 "unique_image_count": plan["unique_image_count"],
@@ -1381,17 +1450,30 @@ def verify_performance(
     expected_evaluation = verify_test_evaluation(
         evaluation, evaluation_sha, export, export_sha
     )
-    if saved["evaluation"]["sha256"] != evaluation_sha:
+    if (
+        saved["evaluation"]["path"] != str(Path(evaluation).resolve())
+        or saved["evaluation"]["sha256"] != evaluation_sha
+    ):
         raise ValueError("performance references a different evaluation")
+    if saved["dataset"]["manifest_sha256"] != export_sha:
+        raise ValueError("performance references a different dataset")
     evidence = json.loads((Path(evaluation) / TEST_EVAL).read_bytes())
     frozen = _frozen(
         Path(evidence["selection"]["path"]), evidence["selection"]["sha256"]
     )
+    expected_settings = {
+        "device": saved["settings"].get("device"),
+        "precision": saved["settings"].get("precision"),
+        "batch": 1,
+        **frozen["predict_settings"],
+        "warmups": WARMUPS,
+    }
     if (
-        saved["selection"]["checkpoint_sha256"] != frozen["checkpoint"]["sha256"]
+        saved["selection"]["path"] != evidence["selection"]["path"]
+        or saved["selection"]["sha256"] != evidence["selection"]["sha256"]
+        or saved["selection"]["checkpoint_sha256"] != frozen["checkpoint"]["sha256"]
         or saved["selection"]["threshold"] != frozen["threshold"]
-        or saved["settings"]["imgsz"] != frozen["predict_settings"]["imgsz"]
-        or saved["settings"]["conf"] != frozen["predict_settings"]["conf"]
+        or saved["settings"] != expected_settings
     ):
         raise ValueError("performance settings differ from the frozen selection")
     observations = json.loads((directory / OBSERVATIONS).read_bytes())
@@ -1403,11 +1485,14 @@ def verify_performance(
     again = aggregate_observations(records, OBSERVATION_COUNT, failures)
     if canonical_json(again) != canonical_json(saved["measurements"]):
         raise ValueError("performance aggregates are not reproducible")
-    if (
-        plan["sequence"]
-        != benchmark_plan(load_split(Path(evaluation) / "dataset", "test"))["sequence"]
+    expected_plan = benchmark_plan(load_split(Path(evaluation) / "dataset", "test"))
+    if plan != expected_plan:
+        raise ValueError("benchmark sampling plan is not reproducible")
+    if any(
+        record["index"] != index or record["image"] != plan["sequence"][index]
+        for index, record in enumerate(records)
     ):
-        raise ValueError("benchmark sampling order is not reproducible")
+        raise ValueError("observation indices or image identities differ from the plan")
     if plan["unique_image_count"] != saved["sampling"]["unique_image_count"]:
         raise ValueError("unique-image count mismatch")
     if (

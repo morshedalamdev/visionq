@@ -92,3 +92,117 @@ def test_performance_configuration_is_locked():
     assert ev.OBSERVATION_COUNT == 100
     assert "synchron" in ev.TIMING_METHOD.lower()
     assert "decode" in ev.TIMING_METHOD and "NMS" in ev.TIMING_METHOD
+
+
+def test_complete_performance_artifact_verifies(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from worker import evaluation as evaluation
+
+    export = tmp_path / "export"
+    evaluation_dir = tmp_path / "evaluation"
+    (export / "placeholder").mkdir(parents=True)
+    (evaluation_dir / "dataset").mkdir(parents=True)
+    checkpoint = tmp_path / "best.pt"
+    checkpoint.write_bytes(b"checkpoint")
+    images = {str(i): {"image": Path(f"{i}.png")} for i in range(3)}
+    prediction_settings = {
+        "imgsz": 320,
+        "conf": 0.001,
+        "iou": 0.7,
+        "max_det": 300,
+    }
+    frozen = {
+        "checkpoint": {
+            "name": "best",
+            "path": str(checkpoint),
+            "sha256": "checkpoint-sha",
+        },
+        "predict_settings": prediction_settings,
+        "threshold": 0.07,
+    }
+    evidence = {
+        "stage": "frozen-test-evaluation",
+        "evidence_class": "synthetic-development",
+        "selection": {
+            "path": str(tmp_path / "selection"),
+            "sha256": "selection-sha",
+        },
+        "dataset": {"manifest_sha256": "dataset-sha"},
+    }
+    (evaluation_dir / evaluation.TEST_EVAL).write_bytes(canonical_json(evidence))
+    monkeypatch.setattr(evaluation, "require_ml", lambda: None)
+    monkeypatch.setattr(
+        evaluation,
+        "performance_inputs",
+        lambda *args: (evidence, frozen, images, {"evaluation_sha256": args[1]}),
+    )
+    monkeypatch.setattr(
+        evaluation, "check_device", lambda device: {"requested": device}
+    )
+    monkeypatch.setattr(evaluation, "environment", lambda: {"python": "test"})
+    monkeypatch.setattr(evaluation, "code_identity", lambda: {"revision": "test"})
+
+    def benchmark(*args, **kwargs):
+        plan = evaluation.benchmark_plan(images)
+        records = []
+        for index in range(100):
+            row = record(index, index + 1)
+            row["image"] = plan["sequence"][index]
+            records.append(row)
+        return records, [], plan, "float32"
+
+    monkeypatch.setattr(evaluation, "benchmark_checkpoint", benchmark)
+
+    performance = tmp_path / "performance"
+    result = evaluation.measure_performance(
+        evaluation_dir, "evaluation-sha", export, "dataset-sha", performance, "cpu"
+    )
+
+    monkeypatch.setattr(
+        evaluation,
+        "verify_test_evaluation",
+        lambda *args: {"evaluation_sha256": args[1]},
+    )
+    monkeypatch.setattr(evaluation, "_frozen", lambda *args: frozen)
+    monkeypatch.setattr(evaluation, "load_split", lambda *args: images)
+    verified = evaluation.verify_performance(
+        performance,
+        result["performance_sha256"],
+        evaluation_dir,
+        "evaluation-sha",
+        export,
+        "dataset-sha",
+    )
+    assert verified["unique_images"] == 3
+    assert verified["observations"] == 100
+
+    observations = json.loads((performance / evaluation.OBSERVATIONS).read_bytes())
+    manifest = json.loads((performance / evaluation.PERFORMANCE).read_bytes())
+    assert observations["settings"] == manifest["settings"]
+    assert manifest["settings"]["batch"] == 1
+    assert manifest["settings"]["warmups"] == 10
+
+    with pytest.raises(ValueError, match="performance checksum"):
+        evaluation.verify_performance(
+            performance,
+            "0" * 64,
+            evaluation_dir,
+            "evaluation-sha",
+            export,
+            "dataset-sha",
+        )
+
+    observation_path = performance / evaluation.OBSERVATIONS
+    observation_path.write_bytes(observation_path.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="artifact mismatch"):
+        # Restore the observations file to its original state for the next test
+        observation_path.write_bytes(observation_path.read_bytes()[:-1])
+        evaluation.verify_performance(
+            performance,
+            result["performance_sha256"],
+            evaluation_dir,
+            "evaluation-sha",
+            export,
+            "dataset-sha",
+        )
