@@ -7,8 +7,8 @@ from test_evaluation_select import (
     metrics,
     reseal,
     select,
-    setup,
-)  # noqa: F401
+    setup,  # noqa: F401
+)
 
 from worker import evaluation as ev
 from worker.inventory import canonical_json
