@@ -60,15 +60,33 @@ The ingestion/training path is a CLI/worker workflow, not a tool the LLM can tri
 | Analytics | Dataset/batch/run/filter IDs | Typed metric evidence and provenance | Shared domain service |
 | Retrieval | Approved docs, corpus version, query | Ranked chunks with source identifiers | Indexer and MCP server |
 | Agent | User question and selected scope | Cited answer, verification status and trace | API process |
-| Presentation | API responses | Charts, overlays, evidence views and exports | Streamlit |
+| Presentation | API responses | Charts, overlays, evidence views and exports | React/Vite |
 
 Proposed API surface: `GET /health`, `GET /datasets`, `GET /runs`, `GET /runs/{id}`, `GET /batches/{id}/metrics`, `GET /images/{id}/results`, `GET /quality`, `POST /questions`, `GET /answers`, `GET /answers/{id}`, and `GET /evidence/{id}`. History list endpoints have bounded pagination and date/dataset/batch/model/run-status filters. Inputs use Pydantic schemas; errors distinguish unknown IDs, unavailable data, incompatible scopes, timeout and internal failure. Long ML jobs run through CLI, not HTTP background tasks. The API delegates analytics to the same service as MCP and does not recompute formulas.
 
 ### User interface and history
 
-The original Streamlit reference below specifies dashboard behavior. The owner’s React/upload direction and open public-hosting decision are tracked in [project state](../agent/PROJECT_STATE.md). The dashboard provides dataset/quality views, image inspection with boxes, a history/performance panel, and an AI question/evidence view. History reopens saved runs, charts, detections, quality reports and AI answers from persistent records, including after restart. Compare selected model evaluations using precision, recall and mAP displayed as percentages, with split/support/protocol and class breakdowns. Do not combine incompatible protocols into an unqualified ranking. Unlabeled inference has no measured accuracy; show that as unavailable, and keep prediction confidence distinct from accuracy.
+The original Streamlit reference is superseded for implementation by the owner’s
+approved React/Vite direction. Public backend exposure remains unapproved. The
+local dashboard provides dataset/quality views, image inspection with boxes, a
+persistent run-history/performance panel, controlled upload requests and an AI
+question/evidence presentation. History reopens saved runs, charts, detections
+and quality reports from persistent records, including after restart. React
+never accesses PostgreSQL, MCP or filesystem paths directly: authenticated
+FastAPI routes resolve allowlisted image artifacts and return typed evidence.
+Upload requests stage validated bytes only and do not auto-register catalog items
+or execute a detector. Compare selected model evaluations using precision,
+recall and mAP only from authoritative persisted evaluation records; where such
+records do not exist, render an explicit unavailable state. Do not combine
+incompatible protocols into an unqualified ranking. Unlabeled inference has no
+measured accuracy; prediction confidence is distinct from accuracy.
 
-Sequential delivery: M4.T4 builds real dataset/run/history/performance views and the defined agent/evidence view structure against explicitly labeled contract fixtures. M5.T1 connects the live agent and saved-answer history and tests reopening evidence after restart. Fixture previews must not report successful live inference. The user applies all UI code through the section-by-section teaching workflow.
+Sequential delivery: M4.T4 builds real dataset/run/history/performance views and
+the defined agent/evidence view structure against explicitly labeled contract
+fixtures. M5.T1 connects the live agent and saved-answer history and tests
+reopening evidence after restart. Fixture previews must not report successful
+live inference. The application stores no frontend-only persistent business
+state; PostgreSQL remains authoritative.
 
 ## Storage and database contract
 
@@ -90,6 +108,7 @@ Images and model files do not live as large database blobs. Keys are relative ar
 | `corpus_versions` and `document_chunks` | Corpus hash/status, document hash/version/source, section/page, chunk hash/text, embedding model digest and vector dimension |
 | `retrieval_indexes` and `chunk_embeddings` | One immutable embedding profile per corpus index; exact vector dimensions, ready-state gating, model revision and content-addressed chunk references |
 | `analytics_snapshots` | ID, immutable scoped metric/quality/provenance payload, hash, capture time, dataset/batch/run IDs, run-state/coverage, query version and optional pinned corpus/index IDs; M4.T3 evidence-v2 envelopes authorize one or more explicit scopes; written by API, read by MCP |
+| `image_upload_requests` | Content-addressed validated PNG/JPEG staging request, dimensions, optional existing dataset/batch scope, explicit status and no-auto-inference lifecycle; written by authenticated FastAPI |
 | `evidence_bundles` | ID, immutable JSON artifact/hash, scope, query/corpus versions, created time; query snapshot persisted before generation |
 | `agent_answers` | ID, question, scope, generator/prompt/tool versions, evidence IDs, trace/draft/final artifact URIs, check results, timing and status |
 

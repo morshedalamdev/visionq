@@ -5,6 +5,14 @@
 !LICENSE
 !alembic.ini
 !src/
+!src/analytics/
+!src/analytics/*.py
+!src/api/
+!src/api/*.py
+!src/mcp_server/
+!src/mcp_server/*.py
+!src/retrieval/
+!src/retrieval/*.py
 !src/worker/
 !src/worker/*.py
 !migrations/

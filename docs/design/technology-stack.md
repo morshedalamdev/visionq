@@ -24,7 +24,7 @@ Required choices for the reference implementation are below. This is a selection
 | Agent | Small explicit Python state machine | Bounded tool selection, evidence assembly, checks and one repair; no framework dependency needed |
 | MCP | Official `mcp` Python SDK, supported stable release line | Server/client for five tools over Streamable HTTP; verify the pinned API together |
 | Document RAG | Section-aware text chunking + pgvector exact cosine search | Small auditable knowledge collection with citations; no separate vector database |
-| Dashboard | Streamlit/Plotly in the original reference design | Image overlays, quality, run comparison and cited chat. See [project state](../agent/PROJECT_STATE.md) for the owner’s React/upload direction and open deployment decision |
+| Dashboard | React 19 + TypeScript + Vite 7 | Owner-approved local dashboard, image overlays, persisted history, analytics and fixture-labeled evidence UI; keep dependencies small and call FastAPI only |
 | CLI/config | Typer, YAML via safe loader | Reproducible ingest/train/index/evaluate commands and configuration |
 | Safe XML import | defusedxml | Parse downloaded annotations without resolving external entities |
 | Testing | pytest, HTTP test client, small fixtures | Conversion, metrics, retries, MCP, retrieval and full local workflow checks |
@@ -64,7 +64,7 @@ Download once after checking rights. At runtime serve local snapshot **paths**, 
 | [vLLM compatible server](https://docs.vllm.ai/en/stable/serving/online_serving/openai_compatible_server/) and [structured outputs](https://docs.vllm.ai/en/stable/features/structured_outputs/) | Send the JSON Schema for a plan/draft to the generation endpoint. Schema validity is separate from factual validity; the application validates the plan and executes allowed tools |
 | [vLLM embedding task and supported models](https://docs.vllm.ai/en/stable/models/pooling_models/embed/) | Use the pooling server, model-specified query/document formats and the same pinned vector dimension at index and query time |
 | [MCP Python SDK](https://py.sdk.modelcontextprotocol.io/) and [server transport](https://py.sdk.modelcontextprotocol.io/run/) | Current v2 docs use `MCPServer`; do not copy old `FastMCP` imports into v2 code |
-| [FastAPI](https://fastapi.tiangolo.com/), [Pydantic](https://docs.pydantic.dev/latest/), [Streamlit](https://docs.streamlit.io/) | Typed interfaces and small dashboard; pin tested dependencies |
+| [FastAPI](https://fastapi.tiangolo.com/), [Pydantic](https://docs.pydantic.dev/latest/), [React](https://react.dev/), [Vite](https://vite.dev/) | Typed backend and locally hosted frontend; pin tested dependencies |
 
 Preserve the M1.T1 rights inventory. Confirm pretrained detector rights before acquiring or copying weights in the vision work. Complete the pinned generator/embedding terms, access and private-hosting verification in deferred M1.T3 Stage 2 before downloading either snapshot. The candidate generator card lists Apache 2.0. EmbeddingGemma is gated: the user must accept Google's terms and obtain download access before staging it. Keep access credentials out of the serving environment. Audit dataset acquisition/private-copy rights in **M2 before acquisition/cloud upload**; redistribution remains a separate publication check. Do not infer universal permission from research use or a public download URL.
 

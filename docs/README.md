@@ -33,6 +33,7 @@ The project/report deadline is **30 November 2026**, with rehearsal in December 
 | [Catalog runbook](operations/catalog-runbook.md) | M2.T4 ingestion, reconciliation, backup/restore failure recovery, disposable PostgreSQL setup and rights limits |
 | [Retrieval runbook](operations/retrieval-runbook.md) | M4.T2 corpus manifests, chunking, embedding profiles, exact retrieval, citations, rebuild and integrity |
 | [MCP runbook](operations/mcp-runbook.md) | M4.T3 five-tool Streamable HTTP service, authentication, evidence pins and read-only PostgreSQL role |
+| [Dashboard runbook](operations/dashboard-runbook.md) | M4.T4 React/FastAPI local application, secure images, upload requests and restart validation |
 
 The original [Thesis Proposal.docx](Thesis%20Proposal.docx) is retained as supplied. It contains three candidate topics; this plan develops **Topic 3**. It is source material, not the current implementation specification.
 

@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from worker.db import database
 
-HEAD_REVISION = "0006_mcp_evidence"
+HEAD_REVISION = "0007_upload_requests"
 
 
 @pytest.hookimpl(hookwrapper=True)

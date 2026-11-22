@@ -37,6 +37,34 @@ services:
       - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
     networks:
       - backend
+  api:
+    profiles: ["tools"]
+    build: .
+    image: visionq-m1t2-worker:local
+    pull_policy: never
+    command:
+      - uvicorn
+      - api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a private database password}
+      ARTIFACT_ROOT: /artifacts
+      VISIONQ_ANALYTICS_API_TOKEN: ${VISIONQ_ANALYTICS_API_TOKEN:?set an API token}
+      VISIONQ_UI_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+      VLLM_GENERATION_BASE_URL: ${VLLM_GENERATION_BASE_URL:-}
+      VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:-}
+    volumes:
+      - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
+    ports:
+      - 127.0.0.1:8000:8000
+    networks:
+      - backend
   mcp:
     profiles: ["tools"]
     build: .

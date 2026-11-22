@@ -18,6 +18,7 @@ from analytics.service import (
     SnapshotPersistenceError,
     capture_context_snapshot,
     capture_snapshot,
+    compare_payloads,
     compare_scopes,
     compare_snapshots,
     read_snapshot,
@@ -136,6 +137,42 @@ def create_context_snapshot(
         AnalyticsScopeError,
         SnapshotContextError,
         SnapshotPersistenceError,
+        SnapshotIntegrityError,
+    ) as exc:
+        raise analytics_http_error(exc) from exc
+
+
+@router.post(
+    "/context-snapshots/{snapshot_id}/compare",
+    dependencies=[Depends(require_token)],
+)
+def compare_context_snapshot(
+    snapshot_id: str,
+    metric_names: list[str],
+    engine: Engine = Depends(engine_for),
+) -> dict:
+    try:
+        snapshot = read_snapshot(engine, snapshot_id)
+        payload = snapshot["payload"]
+        if payload.get("format") != "visionq-question-snapshot-v2":
+            raise AnalyticsCompatibilityError(
+                "comparison requires an evidence-v2 context snapshot"
+            )
+        scope_set = {
+            item["role"]: item["evidence"] for item in payload.get("scope_set", [])
+        }
+        if "left" not in scope_set or "right" not in scope_set:
+            raise AnalyticsCompatibilityError(
+                "snapshot does not contain left and right scopes"
+            )
+        return compare_payloads(
+            scope_set["left"],
+            scope_set["right"],
+            metric_names,
+        )
+    except (
+        AnalyticsCompatibilityError,
+        AnalyticsScopeError,
         SnapshotIntegrityError,
     ) as exc:
         raise analytics_http_error(exc) from exc

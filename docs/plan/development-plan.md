@@ -187,6 +187,27 @@ EmbeddingGemma retrieval quality, production corpus approval, Azure networking o
 full M4 acceptance. M4.T4 may consume the typed, fixture-backed contracts while
 those live checks remain explicit.
 
+### M4.T4 local synthetic closeout
+
+React/Vite is the approved frontend. The local application reads only from
+authenticated FastAPI APIs and renders persisted dataset quality, batches,
+run/history filters, original-coordinate detections, canonical snapshot metrics,
+paired comparisons and explicitly labeled agent/evidence fixtures. Evaluation
+accuracy remains unavailable until authoritative persisted evaluation rows
+exist; synthetic evaluation artifacts are not promoted to UI measurements.
+
+The owner-approved upload extension is a bounded request lifecycle, not a
+background inference framework: PNG/JPEG bytes are decoded, size-limited,
+content-addressed below the configured artifact root and persisted with an
+explicit existing dataset/batch scope. The request is `ready` for review while
+inference remains `not_started` or `pending_registration`. There is no automatic
+catalog registration, queue or detector execution.
+
+The local M4 gate is code-complete when FastAPI/PostgreSQL, React tests/build,
+browser smoke, restart persistence and regression gates pass. Full M4 acceptance
+still requires M1.T3 live services, real retrieval/MCP behavior, real M2/M3
+evidence and the final integrated module gate.
+
 At M4 closure, reconcile real database metrics, UI history and evidence with live embedding retrieval, citations and all five bounded MCP tools. A fixture-backed adapter can test wiring during core development. Only actual service results satisfy retrieval, MCP integration and AI evaluation requirements. M5.T1 connects the live agent and saved AI-answer history.
 
 ## Module 5 Local agent and LLM research
