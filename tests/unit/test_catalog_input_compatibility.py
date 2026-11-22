@@ -14,7 +14,7 @@ from worker.catalog_input import (
 from worker.validation import CLASSES, sha256
 
 REPO = Path(__file__).resolve().parents[2]
-FROZEN = REPO / "artifacts/m2t3-development/synthetic-only"
+FROZEN = REPO / "tests/fixtures/m2t3-development/synthetic-only"
 
 
 def frozen_arguments():

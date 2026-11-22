@@ -9,6 +9,7 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - backend
+    restart: unless-stopped
     healthcheck:
       test:
         - CMD-SHELL
@@ -37,6 +38,7 @@ services:
       - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
     networks:
       - backend
+    restart: unless-stopped
   api:
     profiles: ["tools"]
     build: .
@@ -65,6 +67,15 @@ services:
       - 127.0.0.1:8000:8000
     networks:
       - backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
   mcp:
     profiles: ["tools"]
     build: .
@@ -75,8 +86,8 @@ services:
       db:
         condition: service_healthy
     environment:
-      VISIONQ_MCP_DATABASE_URL: ${VISIONQ_MCP_DATABASE_URL:-}
-      VISIONQ_MCP_TOKEN: ${VISIONQ_MCP_TOKEN:-}
+      VISIONQ_MCP_DATABASE_URL: ${VISIONQ_MCP_DATABASE_URL:?set the read-only MCP database URL}
+      VISIONQ_MCP_TOKEN: ${VISIONQ_MCP_TOKEN:?set the MCP bearer token}
       VISIONQ_MCP_HOST: 0.0.0.0
       VISIONQ_MCP_PORT: 8001
       VISIONQ_MCP_EMBEDDING_BACKEND: ${VISIONQ_MCP_EMBEDDING_BACKEND:-deterministic}
@@ -89,6 +100,15 @@ services:
       VLLM_EMBEDDING_DOCUMENT_PREFIX: ${VLLM_EMBEDDING_DOCUMENT_PREFIX:-}
     networks:
       - backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
 
 volumes:
   pgdata:

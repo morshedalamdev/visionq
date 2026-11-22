@@ -37,6 +37,15 @@ def test_missing_authorization_configuration_fails_closed():
     assert response.json()["detail"] == "analytics API authorization is not configured"
 
 
+def test_health_endpoint_is_public_and_non_sensitive():
+    app = create_app(engine=object(), analytics_api_token="secret")
+    with TestClient(app) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_snapshot_request_validates_uuid_class_and_metric_names():
     app = create_app(engine=object(), analytics_api_token="secret")
     headers = {"Authorization": "Bearer secret"}

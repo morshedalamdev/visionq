@@ -47,6 +47,11 @@ def create_app(
     application.state.analytics_api_token = analytics_api_token
     application.state.retrieval_backend = retrieval_backend
     application.state.artifact_root = artifact_root
+
+    @application.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[

@@ -88,3 +88,42 @@ jobs:
           export VISIONQ_T4_SCHEMA_TEST=1 VISIONQ_T4_RESTORE_TEST=1
           export VISIONQ_REQUIRE_T4_TESTS=1
           uv run --locked python -m pytest -q -rs
+
+      - name: Remove disposable PostgreSQL clusters
+        if: always()
+        run: |
+          export VISIONQ_T4_ENV_DIR="$RUNNER_TEMP"
+          if [[ -f "$RUNNER_TEMP/visionq-t4-source.env" ]]; then
+            deploy/t4-postgres.sh down source
+          fi
+          if [[ -f "$RUNNER_TEMP/visionq-t4-restore.env" ]]; then
+            deploy/t4-postgres.sh down restore
+          fi
+
+  react:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Test and type-check React application
+        run: |
+          npm test
+          npm exec -- tsc -b
+
+      - name: Production build
+        run: npm run build

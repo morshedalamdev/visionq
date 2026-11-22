@@ -16,7 +16,7 @@ from worker.catalog_store import CatalogBusy, CatalogConflict, writer
 from worker.reconciliation import reconcile
 
 REPO = Path(__file__).resolve().parents[2]
-FROZEN = REPO / "artifacts/m2t3-development/synthetic-only"
+FROZEN = REPO / "tests/fixtures/m2t3-development/synthetic-only"
 FROZEN_RELEASE = "3ec61196f181354e3a01e57fef44f17446f5c7d555f4cf2fe070078859898125"
 
 

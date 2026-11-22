@@ -323,7 +323,11 @@ async def test_bearer_auth_is_required_for_streamable_http(postgres_engine):
     async with serve(app) as url:
         async with httpx2.AsyncClient() as client:
             response = await client.post(url, json={"jsonrpc": "2.0"})
+            health = await client.get(url.removesuffix("/mcp") + "/health")
+
         assert response.status_code == 401
+        assert health.status_code == 200
+        assert health.json() == {"status": "ok"}
 
 
 @pytest.mark.anyio
