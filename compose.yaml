@@ -37,6 +37,30 @@ services:
       - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
     networks:
       - backend
+  mcp:
+    profiles: ["tools"]
+    build: .
+    image: visionq-m1t2-worker:local
+    pull_policy: never
+    command: ["visionq-mcp"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      VISIONQ_MCP_DATABASE_URL: ${VISIONQ_MCP_DATABASE_URL:-}
+      VISIONQ_MCP_TOKEN: ${VISIONQ_MCP_TOKEN:-}
+      VISIONQ_MCP_HOST: 0.0.0.0
+      VISIONQ_MCP_PORT: 8001
+      VISIONQ_MCP_EMBEDDING_BACKEND: ${VISIONQ_MCP_EMBEDDING_BACKEND:-deterministic}
+      VISIONQ_MCP_EMBEDDING_DIMENSIONS: ${VISIONQ_MCP_EMBEDDING_DIMENSIONS:-8}
+      VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:-}
+      VLLM_EMBEDDING_MODEL: ${VLLM_EMBEDDING_MODEL:-}
+      VLLM_EMBEDDING_REVISION: ${VLLM_EMBEDDING_REVISION:-}
+      VLLM_EMBEDDING_DIMENSIONS: ${VLLM_EMBEDDING_DIMENSIONS:-}
+      VLLM_EMBEDDING_QUERY_PREFIX: ${VLLM_EMBEDDING_QUERY_PREFIX:-}
+      VLLM_EMBEDDING_DOCUMENT_PREFIX: ${VLLM_EMBEDDING_DOCUMENT_PREFIX:-}
+    networks:
+      - backend
 
 volumes:
   pgdata:

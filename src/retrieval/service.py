@@ -708,6 +708,9 @@ def search(
     index_id: str,
     query: str,
     top_k: int = 4,
+    *,
+    read_only: bool = False,
+    statement_timeout_ms: int | None = None,
 ) -> dict[str, Any]:
     if not isinstance(query, str) or not query.strip():
         raise ValueError("query must be non-empty text")
@@ -729,6 +732,17 @@ def search(
         vector = normalize_vector(vector)
     with engine.connect() as connection:
         with connection.begin():
+            if read_only:
+                connection.execute(text("SET TRANSACTION READ ONLY"))
+            if statement_timeout_ms is not None:
+                if not 1 <= statement_timeout_ms <= 120_000:
+                    raise ValueError(
+                        "statement_timeout_ms is outside the supported range"
+                    )
+                connection.execute(
+                    text("SELECT set_config('statement_timeout', :timeout, true)"),
+                    {"timeout": str(statement_timeout_ms)},
+                )
             index = (
                 connection.execute(
                     text("""

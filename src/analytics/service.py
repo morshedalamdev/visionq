@@ -16,12 +16,18 @@ from analytics.metrics import (
     METRIC_CATALOG_VERSION,
     QUERY_VERSION,
     AnalyticsScope,
+    canonical_bytes,
     content_sha256,
     definition_sha256,
     normalize_metric_names,
 )
 
 SnapshotHook = Callable[[str], None]
+CONTEXT_FORMAT = "visionq-question-snapshot-v2"
+CONTEXT_ROLES = frozenset({"primary", "left", "right"})
+MAX_CONTEXT_SCOPES = 3
+MAX_QUALITY_FINDINGS = 200
+MAX_CONTEXT_PAYLOAD_BYTES = 512 * 1024
 
 
 class AnalyticsError(RuntimeError):
@@ -41,6 +47,10 @@ class SnapshotPersistenceError(AnalyticsError):
 
 
 class SnapshotIntegrityError(AnalyticsError):
+    pass
+
+
+class SnapshotContextError(AnalyticsError, ValueError):
     pass
 
 
@@ -287,10 +297,11 @@ def _build_evidence(
         value = raw_values[name]
         denominator = denominators.get(name, (None, None))
         definition = METRIC_CATALOG[name]
-        if definition.source == "quality_issues":
-            evidence_status = "available"
-        else:
-            evidence_status = run_evidence_status
+        evidence_status = (
+            "available"
+            if definition.source == "quality_issues"
+            else run_evidence_status
+        )
         reason = None
         if value is None:
             evidence_status = "unavailable"
@@ -310,7 +321,6 @@ def _build_evidence(
                 reason,
             )
         )
-
     return {
         "format": "visionq-analytics-evidence-v1",
         "query_version": QUERY_VERSION,
@@ -377,6 +387,108 @@ def _build_evidence(
     }
 
 
+def _quality_evidence(
+    connection: Connection,
+    scope: AnalyticsScope,
+) -> dict[str, Any]:
+    rows = (
+        connection.execute(
+            text("""
+                SELECT
+                    CAST(id AS text) AS issue_id,
+                    CAST(asset_id AS text) AS asset_id,
+                    rule_id,
+                    severity,
+                    details
+                FROM quality_issues
+                WHERE dataset_version_id = CAST(:dataset_version_id AS uuid)
+                ORDER BY rule_id, severity, id
+            """),
+            scope.as_dict(),
+        )
+        .mappings()
+        .all()
+    )
+    if len(rows) > MAX_QUALITY_FINDINGS:
+        raise SnapshotContextError(
+            f"quality findings exceed snapshot bound of {MAX_QUALITY_FINDINGS}"
+        )
+    grouped: dict[str, dict[str, int]] = {}
+    for row in rows:
+        key = row["rule_id"]
+        severity_counts = grouped.setdefault(key, {"warning": 0, "error": 0})
+        severity_counts[row["severity"]] += 1
+    findings = [_plain(dict(row)) for row in rows]
+    quarantined = sorted(
+        {
+            row["asset_id"]
+            for row in rows
+            if row["severity"] == "error" and row["asset_id"] is not None
+        }
+    )
+    return {
+        "findings": findings,
+        "finding_count": len(rows),
+        "counts_by_rule_and_severity": grouped,
+        "quarantined_asset_ids": quarantined,
+        "quarantined_image_count": len(quarantined),
+        "truncated": False,
+        "max_findings": MAX_QUALITY_FINDINGS,
+    }
+
+
+def _retrieval_pin(
+    connection: Connection,
+    corpus_version_id: str | None,
+    retrieval_index_id: str | None,
+) -> dict[str, Any] | None:
+    if (corpus_version_id is None) != (retrieval_index_id is None):
+        raise SnapshotContextError(
+            "corpus version and retrieval index must be pinned together"
+        )
+    if corpus_version_id is None:
+        return None
+    row = (
+        connection.execute(
+            text("""
+                SELECT
+                    CAST(cv.id AS text) AS corpus_version_id,
+                    cv.corpus_name,
+                    cv.version AS corpus_release,
+                    cv.evidence_kind AS corpus_evidence_kind,
+                    cv.manifest_sha256 AS corpus_manifest_sha256,
+                    CAST(ri.id AS text) AS retrieval_index_id,
+                    ri.profile_sha256,
+                    ri.embedding_backend,
+                    ri.embedding_model,
+                    ri.embedding_revision,
+                    ri.dimensions,
+                    ri.pooling,
+                    ri.normalization,
+                    ri.query_prefix,
+                    ri.document_prefix,
+                    ri.status AS index_status
+                FROM retrieval_indexes AS ri
+                JOIN corpus_versions AS cv
+                  ON cv.id = ri.corpus_version_id
+                WHERE ri.id = CAST(:retrieval_index_id AS uuid)
+                  AND ri.corpus_version_id = CAST(:corpus_version_id AS uuid)
+                  AND ri.status = 'ready'
+                  AND cv.status = 'ready'
+            """),
+            {
+                "corpus_version_id": str(corpus_version_id),
+                "retrieval_index_id": str(retrieval_index_id),
+            },
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise SnapshotContextError("pinned corpus/index pair is missing or not ready")
+    return _plain(dict(row))
+
+
 def _plain(value: Any) -> Any:
     if isinstance(value, datetime):
         return value.astimezone(UTC).isoformat()
@@ -408,7 +520,8 @@ def _persist_snapshot(
                 INSERT INTO analytics_snapshots (
                     id, dataset_version_id, batch_id, inference_run_id,
                     metric_catalog_version, run_status, evidence_status,
-                    payload_sha256, payload, captured_at
+                    payload_sha256, payload, pinned_corpus_version_id,
+                    pinned_retrieval_index_id, captured_at
                 )
                 VALUES (
                     CAST(:id AS uuid),
@@ -420,6 +533,8 @@ def _persist_snapshot(
                     :evidence_status,
                     :payload_sha256,
                     CAST(:payload AS jsonb),
+                    CAST(:pinned_corpus_version_id AS uuid),
+                    CAST(:pinned_retrieval_index_id AS uuid),
                     :captured_at
                 )
                 ON CONFLICT (id) DO NOTHING
@@ -434,6 +549,8 @@ def _persist_snapshot(
                 "evidence_status": payload["coverage"]["evidence_status"],
                 "payload_sha256": evidence_hash,
                 "payload": json.dumps(payload, allow_nan=False),
+                "pinned_corpus_version_id": None,
+                "pinned_retrieval_index_id": None,
                 "captured_at": captured_at,
             },
         )
@@ -442,7 +559,8 @@ def _persist_snapshot(
                 text("""
                     SELECT id, dataset_version_id, batch_id, inference_run_id,
                            metric_catalog_version, run_status, evidence_status,
-                           payload_sha256, payload, captured_at
+                           payload_sha256, payload, pinned_corpus_version_id,
+                           pinned_retrieval_index_id, captured_at
                     FROM analytics_snapshots
                     WHERE id = CAST(:id AS uuid)
                 """),
@@ -474,13 +592,115 @@ def capture_snapshot(
             return _persist_snapshot(connection, evidence, evidence_hash)
 
 
+def capture_context_snapshot(
+    engine,
+    scopes: list[tuple[str, AnalyticsScope]],
+    metric_names: list[str] | None = None,
+    pinned_corpus_version_id: str | None = None,
+    pinned_retrieval_index_id: str | None = None,
+) -> dict[str, Any]:
+    selected = normalize_metric_names(metric_names)
+    if not 1 <= len(scopes) <= MAX_CONTEXT_SCOPES:
+        raise SnapshotContextError(
+            f"snapshot requires 1..{MAX_CONTEXT_SCOPES} authorized scopes"
+        )
+    roles = [role for role, _ in scopes]
+    if len(set(roles)) != len(roles) or not set(roles) <= CONTEXT_ROLES:
+        raise SnapshotContextError(
+            "scope roles must be unique primary, left or right values"
+        )
+    if ("left" in roles) != ("right" in roles):
+        raise SnapshotContextError(
+            "comparison snapshots require both left and right scopes"
+        )
+
+    with engine.connect() as connection:
+        connection = connection.execution_options(isolation_level="REPEATABLE READ")
+        with connection.begin():
+            scope_set = []
+            for role, scope in scopes:
+                evidence = _build_evidence(connection, scope, selected)
+                evidence["quality"] = _quality_evidence(connection, scope)
+                evidence["evaluation_links"] = {
+                    "available": False,
+                    "items": [],
+                    "reason": "evaluation link persistence is not implemented",
+                }
+                scope_set.append({"role": role, "evidence": evidence})
+            pin = _retrieval_pin(
+                connection,
+                pinned_corpus_version_id,
+                pinned_retrieval_index_id,
+            )
+            payload = {
+                "format": CONTEXT_FORMAT,
+                "query_version": QUERY_VERSION,
+                "metric_catalog_version": METRIC_CATALOG_VERSION,
+                "scope_set": scope_set,
+                "pinned_retrieval": pin,
+            }
+            if len(canonical_bytes(payload)) > MAX_CONTEXT_PAYLOAD_BYTES:
+                raise SnapshotContextError(
+                    "authorized snapshot evidence exceeds output size bound"
+                )
+            evidence_hash = content_sha256(payload)
+            primary = next(
+                (item for item in scope_set if item["role"] == "primary"),
+                scope_set[0],
+            )
+            primary_scope = primary["evidence"]["scope"]
+            captured_at = datetime.now(UTC)
+            snapshot_id = _snapshot_id(evidence_hash)
+            connection.execute(
+                text("""
+                    INSERT INTO analytics_snapshots (
+                        id, dataset_version_id, batch_id, inference_run_id,
+                        metric_catalog_version, run_status, evidence_status,
+                        payload_sha256, payload, pinned_corpus_version_id,
+                        pinned_retrieval_index_id, captured_at
+                    )
+                    VALUES (
+                        CAST(:id AS uuid),
+                        CAST(:dataset_version_id AS uuid),
+                        CAST(:batch_id AS uuid),
+                        CAST(:inference_run_id AS uuid),
+                        :metric_catalog_version,
+                        :run_status,
+                        :evidence_status,
+                        :payload_sha256,
+                        CAST(:payload AS jsonb),
+                        CAST(:pinned_corpus_version_id AS uuid),
+                        CAST(:pinned_retrieval_index_id AS uuid),
+                        :captured_at
+                    )
+                    ON CONFLICT (id) DO NOTHING
+                """),
+                {
+                    "id": snapshot_id,
+                    **primary_scope,
+                    "metric_catalog_version": METRIC_CATALOG_VERSION,
+                    "run_status": primary["evidence"]["coverage"]["run_status"],
+                    "evidence_status": primary["evidence"]["coverage"][
+                        "evidence_status"
+                    ],
+                    "payload_sha256": evidence_hash,
+                    "payload": json.dumps(payload, allow_nan=False),
+                    "pinned_corpus_version_id": pinned_corpus_version_id,
+                    "pinned_retrieval_index_id": pinned_retrieval_index_id,
+                    "captured_at": captured_at,
+                },
+            )
+            return _snapshot_payload(connection, snapshot_id)
+
+
 def _snapshot_payload(connection, snapshot_id: str) -> dict[str, Any]:
     row = (
         connection.execute(
             text("""
                 SELECT id, dataset_version_id, batch_id, inference_run_id,
                        metric_catalog_version, run_status, evidence_status,
-                       payload_sha256, payload, captured_at
+                       payload_sha256, payload, pinned_corpus_version_id,
+                       pinned_retrieval_index_id, captured_at
                 FROM analytics_snapshots
                 WHERE id = CAST(:id AS uuid)
             """),
@@ -498,13 +718,30 @@ def _snapshot_payload(connection, snapshot_id: str) -> dict[str, Any]:
     return result
 
 
-def read_snapshot(engine, snapshot_id: str) -> dict[str, Any]:
+def read_snapshot(
+    engine,
+    snapshot_id: str,
+    *,
+    read_only: bool = False,
+    statement_timeout_ms: int | None = None,
+) -> dict[str, Any]:
     try:
         UUID(str(snapshot_id))
     except (AttributeError, TypeError, ValueError):
         raise AnalyticsScopeError("invalid analytics snapshot ID") from None
     with engine.connect() as connection:
         with connection.begin():
+            if read_only:
+                connection.execute(text("SET TRANSACTION READ ONLY"))
+            if statement_timeout_ms is not None:
+                if not 1 <= statement_timeout_ms <= 120_000:
+                    raise ValueError(
+                        "statement_timeout_ms is outside the supported range"
+                    )
+                connection.execute(
+                    text("SELECT set_config('statement_timeout', :timeout, true)"),
+                    {"timeout": str(statement_timeout_ms)},
+                )
             return _snapshot_payload(connection, snapshot_id)
 
 

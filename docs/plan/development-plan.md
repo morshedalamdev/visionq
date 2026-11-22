@@ -167,6 +167,26 @@ Evidence is recorded at `artifacts/m4t2-local-20261121/evidence.json`.
 EmbeddingGemma identity, 768-dimensional vectors, real prefixes, relevance and
 live endpoint behavior are still NOT_RUN.
 
+### M4.T3 local synthetic closeout
+
+The approved backward-compatible extension adds evidence-v2 MCP snapshots:
+existing M4.T1 rows remain readable; new API-owned captures can pin an explicit
+set of primary/left/right scopes, detailed quality findings and one ready
+corpus/index pair. Migration `0006_mcp_evidence` adds the nullable retrieval
+foreign key without rewriting historical evidence.
+
+The official MCP SDK 2.3.x exposes exactly the five approved tools over
+authenticated Streamable HTTP. A real SDK client discovers and calls every tool
+against PostgreSQL/pgvector. The MCP service consumes immutable snapshot payloads,
+uses the existing retrieval service only for the exact pinned index and has no
+write route. Least-privilege role, timeout, invalid-scope, output-cap and
+database-outage checks pass locally.
+
+This is local synthetic-development evidence. It does not prove live
+EmbeddingGemma retrieval quality, production corpus approval, Azure networking or
+full M4 acceptance. M4.T4 may consume the typed, fixture-backed contracts while
+those live checks remain explicit.
+
 At M4 closure, reconcile real database metrics, UI history and evidence with live embedding retrieval, citations and all five bounded MCP tools. A fixture-backed adapter can test wiring during core development. Only actual service results satisfy retrieval, MCP integration and AI evaluation requirements. M5.T1 connects the live agent and saved AI-answer history.
 
 ## Module 5 Local agent and LLM research

@@ -13,8 +13,10 @@ from analytics.metrics import AnalyticsScope, metric_catalogue
 from analytics.service import (
     AnalyticsCompatibilityError,
     AnalyticsScopeError,
+    SnapshotContextError,
     SnapshotIntegrityError,
     SnapshotPersistenceError,
+    capture_context_snapshot,
     capture_snapshot,
     compare_scopes,
     compare_snapshots,
@@ -22,6 +24,7 @@ from analytics.service import (
 )
 from api.schemas import (
     AnalyticsScopeRequest,
+    ContextSnapshotCreateRequest,
     ScopeComparisonRequest,
     SnapshotComparisonRequest,
     SnapshotCreateRequest,
@@ -72,6 +75,8 @@ def analytics_http_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, SnapshotPersistenceError):
         return HTTPException(status_code=503, detail=str(exc))
+    if isinstance(exc, SnapshotContextError):
+        return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, SnapshotIntegrityError):
         return HTTPException(status_code=500, detail=str(exc))
     raise exc
@@ -95,6 +100,41 @@ def create_snapshot(
         return capture_snapshot(engine, as_scope(body), body.metric_names)
     except (
         AnalyticsScopeError,
+        SnapshotPersistenceError,
+        SnapshotIntegrityError,
+    ) as exc:
+        raise analytics_http_error(exc) from exc
+
+
+@router.post(
+    "/context-snapshots",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_token)],
+)
+def create_context_snapshot(
+    body: ContextSnapshotCreateRequest,
+    engine: Engine = Depends(engine_for),
+) -> dict:
+    try:
+        scopes = [(scope.role, as_scope(scope)) for scope in body.scopes]
+        return capture_context_snapshot(
+            engine,
+            scopes,
+            body.metric_names,
+            (
+                str(body.pinned_corpus_version_id)
+                if body.pinned_corpus_version_id
+                else None
+            ),
+            (
+                str(body.pinned_retrieval_index_id)
+                if body.pinned_retrieval_index_id
+                else None
+            ),
+        )
+    except (
+        AnalyticsScopeError,
+        SnapshotContextError,
         SnapshotPersistenceError,
         SnapshotIntegrityError,
     ) as exc:

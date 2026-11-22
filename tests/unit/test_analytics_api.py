@@ -89,3 +89,54 @@ def test_persistence_failure_is_an_explicit_service_unavailable(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["detail"] == "test persistence failure"
+
+
+def test_context_snapshot_request_accepts_only_complete_authorized_scope_sets(
+    monkeypatch,
+):
+    captured = {}
+
+    def fake_capture(engine, scopes, metrics, corpus, index):
+        captured.update(
+            scopes=scopes,
+            metrics=metrics,
+            corpus=corpus,
+            index=index,
+        )
+        return {"id": str(uuid4()), "payload": {"format": "v2"}}
+
+    monkeypatch.setattr(
+        "api.analytics.capture_context_snapshot",
+        fake_capture,
+    )
+    app = create_app(engine=object(), analytics_api_token="secret")
+    headers = {"Authorization": "Bearer secret"}
+    left = {**scope(), "role": "left"}
+    right = {**scope(), "role": "right"}
+    with TestClient(app) as client:
+        valid = client.post(
+            "/analytics/context-snapshots",
+            headers=headers,
+            json={
+                "scopes": [left, right],
+                "metric_names": ["batch_image_count"],
+            },
+        )
+        missing_right = client.post(
+            "/analytics/context-snapshots",
+            headers=headers,
+            json={"scopes": [left]},
+        )
+        mismatched_pin = client.post(
+            "/analytics/context-snapshots",
+            headers=headers,
+            json={
+                "scopes": [{**scope(), "role": "primary"}],
+                "pinned_corpus_version_id": str(uuid4()),
+            },
+        )
+
+    assert valid.status_code == 201
+    assert missing_right.status_code == 422
+    assert mismatched_pin.status_code == 422
+    assert [role for role, _ in captured["scopes"]] == ["left", "right"]

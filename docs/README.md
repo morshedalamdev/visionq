@@ -1,12 +1,12 @@
 # VisionQ thesis project documentation
 
-Last updated: **21 November 2026**. M1.T1 is complete under its recorded scope;
+Last updated: **22 November 2026**. M1.T1 is complete under its recorded scope;
 M1.T2 passed all eight checks at `81f563a`. M1.T3 is deferred and the M1
 integration gate remains open. M4.T1 passed its local synthetic-development
-gate at `fc60a381` with 255 strict tests; M4.T2 now has local
-fixture-backed retrieval passing 279 strict tests on the shared final tree.
-Live model acceptance, corpus approval and the blocked M2.T3/M3 real-data
-gates remain open.
+gate at `fc60a381` with 255 strict tests; M4.T2 passed fixture-backed retrieval
+and M4.T3 passed the authenticated five-tool MCP service on the shared final
+tree with 290 strict tests. Live model acceptance, corpus approval and the
+blocked M2.T3/M3 real-data gates remain open.
 See the [development sequence](plan/development-plan.md) and
 [task evidence](agent/TASK_LOG.md).
 
@@ -32,6 +32,7 @@ The project/report deadline is **30 November 2026**, with rehearsal in December 
 | [Review record](review/review-log.md) | Independent challenge, corrections and final review verdict |
 | [Catalog runbook](operations/catalog-runbook.md) | M2.T4 ingestion, reconciliation, backup/restore failure recovery, disposable PostgreSQL setup and rights limits |
 | [Retrieval runbook](operations/retrieval-runbook.md) | M4.T2 corpus manifests, chunking, embedding profiles, exact retrieval, citations, rebuild and integrity |
+| [MCP runbook](operations/mcp-runbook.md) | M4.T3 five-tool Streamable HTTP service, authentication, evidence pins and read-only PostgreSQL role |
 
 The original [Thesis Proposal.docx](Thesis%20Proposal.docx) is retained as supplied. It contains three candidate topics; this plan develops **Topic 3**. It is source material, not the current implementation specification.
 
