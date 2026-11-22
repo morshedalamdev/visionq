@@ -3,9 +3,11 @@
 Last updated: **22 November 2026**. M1.T1 is complete under its recorded scope;
 M1.T2 passed all eight checks at `81f563a`. M1.T3 is deferred and the M1
 integration gate remains open. M4.T1 passed its local synthetic-development
-gate at `fc60a381` with 255 strict tests; M4.T2 passed fixture-backed retrieval
-and M4.T3 passed the authenticated five-tool MCP service on the shared final
-tree with 290 strict tests. Live model acceptance, corpus approval and the
+gate at `fc60a381`; M4.T2 passed fixture-backed retrieval, M4.T3 passed the
+authenticated five-tool MCP service, and M4.T4 passed the React/FastAPI local
+application with 296 strict tests. The 22 November readiness check resolved the
+Docker build issue for ARM64 and AMD64 and verified the private Compose path.
+Live model acceptance, production authentication, corpus approval and the
 blocked M2.T3/M3 real-data gates remain open.
 See the [development sequence](plan/development-plan.md) and
 [task evidence](agent/TASK_LOG.md).
@@ -34,6 +36,7 @@ The project/report deadline is **30 November 2026**, with rehearsal in December 
 | [Retrieval runbook](operations/retrieval-runbook.md) | M4.T2 corpus manifests, chunking, embedding profiles, exact retrieval, citations, rebuild and integrity |
 | [MCP runbook](operations/mcp-runbook.md) | M4.T3 five-tool Streamable HTTP service, authentication, evidence pins and read-only PostgreSQL role |
 | [Dashboard runbook](operations/dashboard-runbook.md) | M4.T4 React/FastAPI local application, secure images, upload requests and restart validation |
+| [M4 Azure readiness](operations/m4-azure-readiness.md) | Resolved image build, private service smoke, React auth finding, M1.T3 prerequisites, open gates and deadline critical path |
 
 The original [Thesis Proposal.docx](Thesis%20Proposal.docx) is retained as supplied. It contains three candidate topics; this plan develops **Topic 3**. It is source material, not the current implementation specification.
 

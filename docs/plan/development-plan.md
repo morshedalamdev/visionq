@@ -3,12 +3,21 @@
 The owner revised the execution order on **17 November 2026**. M1.T1 is
 complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`.
 M2/M3 synthetic development has advanced, but the M2 real release and the
-real-data M3 gate remain open. M4.T1 and M4.T2 pass local
-synthetic-development implementation; the next M4 implementation task is
-M4.T3 with the same local/live distinction. M1.T3 is deferred until the local
-core is ready for real AI integration. Its four checks and the M1 module gate
-are pending. The [task register](../agent/TASK_LOG.md) preserves the underlying
-evidence.
+real-data M3 gate remain open. M4.T1–T4 pass local synthetic-development
+implementation and M4 is locally code-complete. The Docker build and private
+Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 is now
+the next live-model deployment gate; its four checks and the M1 module gate are
+pending. Public React authentication and the red hosted workflow are separate
+deployment blockers. The [task register](../agent/TASK_LOG.md) and
+[M4 Azure readiness report](../operations/m4-azure-readiness.md) preserve the
+underlying evidence.
+
+As of 22 November, M4.T1–T4 are locally code-complete. The readiness check
+resolved the Docker build block for ARM64 and AMD64 and passed a private
+PostgreSQL/API/MCP Compose smoke. It does **not** close M4: hosted CI is red,
+the React bearer token is unsuitable for public production, the frontend lacks
+a Compose/static serving boundary, and M1.T3/live data/model gates remain.
+Follow [the M4 Azure readiness report](../operations/m4-azure-readiness.md).
 
 Complete the project and report by **30 November 2026**, then rehearse in December for the approximate second-week defense. An earlier official submission date takes precedence. The November 13 forecast of 152–196 focused hours covered all 22 tasks across six modules. The earlier module windows have been superseded. The task sizes below are original estimates, and the November 28–29 report dates in M6 are internal targets. Use measured throughput and remaining work to revise the forecast at each handoff. The deadline is at risk if the real-model checks need hardware or configuration changes.
 
