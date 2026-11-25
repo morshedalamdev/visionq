@@ -64,8 +64,7 @@ those actions in the M1.T3 chat.
 
 ## 5. M1.T3 gate status
 
-- [ ] **V01 identity:** both actual services and aliases verified; exact files,
-      revisions, image digests, dtype and launch configuration saved.
+- [x] **V01** passed under the approved AMD64 identity procedure and dated owner licensing confirmation below.
 - [x] **V02 retrieval/tool:** real vector of expected width, expected passage
       ranks first, schema-valid tool plan, one real MCP metric call and answer.
 - [x] **V03 VM feasibility:** five scoped questions, each below 120 seconds,
@@ -73,7 +72,7 @@ those actions in the M1.T3 chat.
       deallocation.
 - **V04 deferred until after initial release by owner approval:** cached services restart with external egress
       blocked; real generation and embedding requests both pass.
-- [ ] Run the M1 integration/regression gate before closing M1.
+- [x] M1 integration/regression gate passed.
 
 The M1.T3 fixture passage and metric question can run before the real M2 release or M3 detector evaluation.
 
@@ -127,9 +126,7 @@ Both mounts are read-only and both runners use eager execution and offline
 settings. Owner-reported image tag is `visionq-vllm:0.15.1-avx2`, vLLM source
 `1892993bc18e243e2c05841314c5e9c06a80c70d`, PyTorch `2.10.0+cpu`, image
 ID `sha256:50a08e0381da7779a29f919db21cb47d7c64cbdc35130be71937d2dad8791b2a`.
-The Docker image ID identifies local image configuration. V01 still needs the
-portable platform digests and owner confirmation of EmbeddingGemma account
-acceptance. [Qwen model card](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
+The Docker image ID identifies local image configuration. Portable OCI capture is deferred to the next required Azure session. [Qwen model card](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
 and [EmbeddingGemma access terms](https://huggingface.co/google/embeddinggemma-300m).
 
 ### Azure VM (Remote)
@@ -225,11 +222,10 @@ $0.25 disk, $0.08 public IP and under $0.01 storage. Delayed charges may apply.
 `compose.t3.yaml` is a byte-for-byte copy of the verified model overlay for
 reproducibility. Both saved overlay checksums matched. Keep the deployed
 Azure overlays in place. The model containers' recorded image ID matches
-the local image configuration ID documented above. The approved initial-release identity procedure below satisfies AMD64 identity. The dated terms record remains incomplete.
+the local image configuration ID documented above. The approved initial-release identity procedure below satisfies AMD64 identity.
 ARM64 image and offline runtime evidence move with the deferred V04 work.
 
-V02 and V03 passed. V01 remains incomplete, V04 is deferred, and the
-separate M1 integration/regression gate awaits V01.
+V01–V03 passed. V04 remains deferred until after initial release.
 
 ### Approved V01 revision — 25 November 2026
 
@@ -246,6 +242,6 @@ sudo docker build --platform linux/amd64 --file docker/Dockerfile.cpu --target v
   2>&1 | tee /opt/visionq/logs/vllm-0.15.1-avx2-build.log
 ```
 
-Runtime identity is satisfied under the revised procedure. Owner confirmed account access, snapshot download and terms review on 24 November 2026. Acceptance date and affirmative confirmation covering intended private academic use are outstanding.
+Runtime identity is satisfied under the revised procedure. Owner confirmed account access, snapshot download and terms review on 24 November 2026. The owner separately confirmed acceptance of the applicable terms on 24 November 2026 for the intended private VisionQ academic research.
 
-Independent local regression at `8630367` passed all 321 locked tests with zero skips in 58.14 seconds using disposable source and restore databases. The seeded row and artifact checksum survived the Compose PostgreSQL restart. Hosted Foundation success for this revision remains unverified.
+Independent local regression at `8630367` passed all 321 locked tests with zero skips in 58.14 seconds using disposable source and restore databases. The seeded row and artifact checksum survived the Compose PostgreSQL restart. M1.T3 and M1 closed under the revised initial-release criteria. Hosted [Foundation run 45581753576](https://github.com/morshedalamdev/visionq/actions/runs/45581753576) completed successfully at `be81df6`. Only documentation changed since the 321-test local pass at `8630367`. Next is M2.T3 human duplicate review and real release.

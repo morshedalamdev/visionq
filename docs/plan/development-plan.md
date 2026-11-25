@@ -5,9 +5,7 @@ complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`.
 M2/M3 synthetic development has advanced, but the M2 real release and the
 real-data M3 gate remain open. M4.T1–T4 pass local synthetic-development
 implementation and M4 is locally code-complete. The Docker build and private
-Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 passed its Azure retrieval and benchmark checks. Azure serving identity is accepted under the revised procedure. The actual date of confirmed EmbeddingGemma terms acceptance remains open and the owner deferred local offline model serving until after
-initial release. The M1 module gate is pending. Public React authentication and the red hosted workflow are separate
-deployment blockers. The [task register](../agent/TASK_LOG.md) and
+Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 passed its Azure retrieval and benchmark checks. Azure serving identity is accepted under the revised procedure. M1.T3 and M1 closed under the revised initial-release criteria. Hosted [Foundation run 45581753576](https://github.com/morshedalamdev/visionq/actions/runs/45581753576) completed successfully at `be81df6`. Only documentation changed since the 321-test local pass at `8630367`. Next is M2.T3 human duplicate review and real release. V04 remains post-release. Public React authentication remains a separate deployment concern. The [task register](../agent/TASK_LOG.md) and
 [M4 Azure readiness report](../operations/m4-azure-readiness.md) preserve the
 underlying evidence.
 
