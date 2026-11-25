@@ -1,5 +1,8 @@
 # Azure deployment and student services
 
+On 25 November 2026 the owner confirmed Azure as the primary live inference environment with the existing vLLM models. Local development uses synthetic fixtures and mocked endpoints. Local offline model serving (M1.T3 V04) is deferred until after initial release. See the [acceptance record](../operations/m1t3-deployment-checklist.md#final-azure-benchmark--25-november-2026).
+
+
 Azure was selected on 13 November 2026. On **17 November 2026** the owner deferred M1.T3 until the local core is ready for AI integration. The planned operating/retention horizon ends **13 November 2027**. The owner runs any later provisioning and verification through the guided task workflow.
 
 ## Verified access and unresolved inputs

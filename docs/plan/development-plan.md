@@ -5,9 +5,9 @@ complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`.
 M2/M3 synthetic development has advanced, but the M2 real release and the
 real-data M3 gate remain open. M4.T1–T4 pass local synthetic-development
 implementation and M4 is locally code-complete. The Docker build and private
-Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 is now
-the next live-model deployment gate; its four checks and the M1 module gate are
-pending. Public React authentication and the red hosted workflow are separate
+Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 passed its Azure retrieval and benchmark checks. Azure serving identity
+remains open and the owner deferred local offline model serving until after
+initial release. The M1 module gate is pending. Public React authentication and the red hosted workflow are separate
 deployment blockers. The [task register](../agent/TASK_LOG.md) and
 [M4 Azure readiness report](../operations/m4-azure-readiness.md) preserve the
 underlying evidence.
@@ -46,26 +46,26 @@ the appropriate chat.
 
 ## Module 1 Foundation and feasibility
 
-Original estimate 18–26 hours including preflight and fixtures. M1.T1/T2 are complete. M1.T1 closed with its account check V08 deferred by the owner; M1.T2's separately numbered V08 (Foundation CI) passed. The T1 source inventory and configuration-file check are not proof of access to the two full model snapshots. M1.T3 and M1 closure are deferred until M4.T1 and M4.T4 pass. The model access and deployment work below resumes in the same M1 chat.
+Original estimate 18–26 hours including preflight and fixtures. M1.T1/T2 are complete. M1.T1 closed with its account check V08 deferred by the owner; M1.T2's separately numbered V08 (Foundation CI) passed. The T1 source inventory and configuration-file check are not proof of access to the two full model snapshots. M1.T3 has resumed in the original M1 chat.
 
 | Task | Work and deliverable | Done when |
 |---|---|---|
 | M1.T1 | Establish scope, supervisor checklist, deadline/hardware/CPU-architecture inventory; retain Git, Python package, ignore/source inventory; check model terms and gated snapshot access before downloads, CPU instruction/dtype and platform-image compatibility, Azure region/quota/price/credit plan and GitHub status | Reproducible setup and recorded hardware/questions; Git preserved; model private-hosting terms checked; actual cloud cost/eligibility assumptions and unresolved supervisor items explicit; no GPU/free-VM promises |
 | M1.T2 | Compose skeleton with private vLLM service URLs, PostgreSQL/pgvector migration, local artifact/config contracts; private Blob backup adapter with synthetic fixtures; lightweight GitHub Actions checks | Health/restart persistence passes; Blob private access, checksum round trip and interrupted-upload checks pass; CI evidence recorded without exposing secrets/data |
-| M1.T3 | After preflight/model-term checks, run the two self-hosted vLLM services on the user-provisioned affordable VM; exercise schema-constrained generation, embeddings and MCP; repeat a local offline smoke check | All four checks below pass on the applied configuration, including five timed VM questions, private networking and deallocation |
+| M1.T3 | After preflight/model-term checks, run the two self-hosted vLLM services on the user-provisioned affordable VM; exercise schema-constrained generation, embeddings and MCP | V01–V03 pass for the Azure deployment. V04 is deferred until after initial release by owner approval |
 
 Stage 1 recorded Azure eligibility, quota, candidate VM, retail estimates and image availability. No VM was provisioned. Capacity at allocation, CPU inference compatibility and end-to-end latency are open. Preserve the separate [Azure preflight record](../design/azure-and-student-services.md).
 
-On resumption, Stage 2 verifies access and terms for the pinned `Qwen/Qwen3-4B-Instruct-2507` and `google/embeddinggemma-300m` revisions, downloads the approved snapshots, creates SHA-256 manifests and stages the authorized files. Stage 3 covers the T3 dependencies, `t3_metric.py`, `t3_probe.py`, their tests, `compose.t3.yaml` and CPU container preparation. Recheck budget, quota, capacity and authorization before provisioning. Then collect all four original checks on the actual services.
+On resumption, Stage 2 verifies access and terms for the pinned `Qwen/Qwen3-4B-Instruct-2507` and `google/embeddinggemma-300m` revisions, downloads the approved snapshots, creates SHA-256 manifests and stages the authorized files. Stage 3 covers the T3 dependencies, the scoped MCP metric path in `t3_probe.py`, its tests, `compose.t3.yaml` and CPU container preparation. Recheck budget, quota, capacity and authorization before provisioning. Collect the Azure checks on the actual services.
 
 Required M1.T3 evidence (the user runs the checks and shares results):
 
 1. **Services and identity:** Start the generation and pooling servers together. Check their served aliases and actual chat/embedding requests. Save exact model revisions/file hashes, per-platform image digests, vLLM version, dtype, context/cache caps and Docker resource limits. Health alone does not pass.
 2. **Retrieval and tool use:** Index a titled synthetic passage and an unrelated distractor, then embed a query through the same pooling endpoint. Verify finite, nonzero vectors of the pinned width and the expected passage ranks first by cosine similarity. Validate a real schema-constrained plan, execute one scoped metric tool through MCP and validate an answer against its fixture value. A failed endpoint must surface an error with no hosted fallback.
 3. **VM feasibility:** With both services resident, all five scoped fixture questions must return schema-valid responses without OOM within 120 seconds **each, end to end**. Include at least one retrieval question and one metric question. Record per-question and median latency, combined peak RAM, relevant device, estimated/observed credit use, restricted SSH access and verified VM deallocation.
-4. **Local fallback:** On the intended local Docker host, restart both cached services with external egress blocked and internal networking retained. From this fresh start, generate a schema-valid answer and embed a query using the mounted snapshots. Record evidence for both paths; results from the Azure VM do not pass this check.
+4. **Local fallback (deferred until after initial release by owner approval):** On the intended local Docker host, restart both cached services with external egress blocked and internal networking retained. From this fresh start, generate a schema-valid answer and embed a query using the mounted snapshots. Record evidence for both paths; results from the Azure VM do not pass this check.
 
-M1.T3 establishes feasibility for the later M4 integration and M5 research. Keep the separate full agent evaluation and final offline recovery demonstration. If the chosen CPU, RAM, model access, VM capacity or remaining credit blocks a required check, record the failure, revisit feasibility with the Architecture chat and reforecast. Any proposed model change needs an explicit decision. M1 closes only after the four T3 checks and its integration/regression gate pass.
+M1.T3 establishes feasibility for the later M4 integration and M5 research. Keep the separate full agent evaluation and final offline recovery demonstration. If the chosen CPU, RAM, model access, VM capacity or remaining credit blocks a required check, record the failure, revisit feasibility with the Architecture chat and reforecast. Any proposed model change needs an explicit decision. For initial release, M1 closes after V01–V03 and the separate integration/regression gate pass. V04 remains deferred. Azure is the primary live inference environment. Local development uses synthetic fixtures and mocked endpoints.
 
 ## Module 2 — Dataset Ingestion and Validation
 

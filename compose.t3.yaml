@@ -1,0 +1,97 @@
+services:
+  vllm-gen:
+    image: visionq-vllm:0.15.1-avx2
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 24g
+    memswap_limit: 24g
+    shm_size: 2g
+
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      VLLM_CPU_KVCACHE_SPACE: "1"
+      VLLM_CPU_OMP_THREADS_BIND: "0,2"
+      VLLM_NO_USAGE_STATS: "1"
+
+    volumes:
+      - /opt/visionq/models/qwen3-4b-instruct-2507:/models/qwen:ro
+
+    command:
+      - /models/qwen
+      - --served-model-name
+      - qwen3-4b-instruct-2507
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --dtype
+      - float32
+      - --max-model-len
+      - "2048"
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+
+    networks:
+      - backend
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  vllm-embed:
+    image: visionq-vllm:0.15.1-avx2
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 6g
+    memswap_limit: 6g
+    shm_size: 1g
+
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      VLLM_CPU_OMP_THREADS_BIND: "1,3"
+      VLLM_NO_USAGE_STATS: "1"
+
+    volumes:
+      - /opt/visionq/models/embeddinggemma-300m:/models/embeddinggemma:ro
+
+    command:
+      - /models/embeddinggemma
+      - --served-model-name
+      - embeddinggemma-300m
+      - --runner
+      - pooling
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --dtype
+      - float32
+      - --max-model-len
+      - "2048"
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+
+    networks:
+      - backend
+
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s

@@ -78,3 +78,33 @@ def test_wrong_plan_stops_before_mcp(monkeypatch):
     with pytest.raises(ValueError, match="Unexpected plan"):
         asyncio.run(probe.run_case(None, None, probe.CASES[0]))
     call.assert_not_awaited()
+
+
+def test_mcp_sdk_error_result():
+    from mcp.types import CallToolResult
+
+    session = AsyncMock()
+    session.call_tool.return_value = CallToolResult(content=[], is_error=True)
+    with pytest.raises(ValueError, match="get_batch_metrics returned an error"):
+        asyncio.run(probe.evidence(session, probe.CASES[0][0], "batch_image_count"))
+
+
+def test_mcp_sdk_structured_result():
+    from mcp.types import CallToolResult
+
+    session = AsyncMock()
+    session.call_tool.return_value = CallToolResult(
+        content=[], is_error=False, structured_content={"snapshot_id": "wrong"}
+    )
+    # An incomplete structured payload must fail schema validation after being read.
+    with pytest.raises(ValidationError, match="snapshot_sha256"):
+        asyncio.run(probe.evidence(session, probe.CASES[0][0], "batch_image_count"))
+    session.call_tool.assert_awaited_once_with(
+        "get_batch_metrics",
+        {
+            "snapshot_id": probe.SNAPSHOT,
+            "batch_id": probe.BATCH,
+            "inference_run_id": probe.RUN,
+            "metric_names": ["batch_image_count"],
+        },
+    )

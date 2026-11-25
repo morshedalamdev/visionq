@@ -62,16 +62,16 @@ those actions in the M1.T3 chat.
 - [ ] Record peak RAM, model load times and per-request latency.
 - [ ] Keep question concurrency and CPU KV cache bounded.
 
-## 5. Four original M1.T3 gates
+## 5. M1.T3 gate status
 
 - [ ] **V01 identity:** both actual services and aliases verified; exact files,
       revisions, image digests, dtype and launch configuration saved.
-- [ ] **V02 retrieval/tool:** real vector of expected width, expected passage
+- [x] **V02 retrieval/tool:** real vector of expected width, expected passage
       ranks first, schema-valid tool plan, one real MCP metric call and answer.
-- [ ] **V03 VM feasibility:** five scoped questions, each below 120 seconds,
+- [x] **V03 VM feasibility:** five scoped questions, each below 120 seconds,
       no OOM, median latency, peak RAM, cost evidence, private access and
       deallocation.
-- [ ] **V04 local fallback:** cached services restart with external egress
+- **V04 deferred until after initial release by owner approval:** cached services restart with external egress
       blocked; real generation and embedding requests both pass.
 - [ ] Run the M1 integration/regression gate before closing M1.
 
@@ -207,3 +207,29 @@ snapshot paths yielded no matches. The observed Azure FP32 footprint exceeds
 the current guest capacity. A native ARM64 vLLM runtime with the same pinned
 models and a lower-memory configuration needs an owner decision and an actual
 dual-service restart on an internal-only network.
+
+
+## Final Azure benchmark — 25 November 2026
+
+Private evidence resides under `artifacts/m1t3-live/benchmark-20261125T074828Z/`.
+The saved probe commit is `fd43ae749157165b7025c5ec0ae92c7c6afb8943`.
+All five scoped questions passed against synthetic fixtures with real models and
+authenticated MCP. Exit code was 0. Times were 25.604, 25.490, 23.886, 27.767
+and 27.785 seconds, with a 25.604-second median and a 132-second run.
+The 45 complete paired samples yielded 21.457 GiB combined sampled peak and
+21.447 GiB mean. Both model containers reported zero restarts and the event
+log was empty. The owner verified `PowerState/deallocated` and reported
+$3.48 accumulated Azure cost as of November 25, including $3.15 compute,
+$0.25 disk, $0.08 public IP and under $0.01 storage. Delayed charges may apply.
+
+`compose.t3.yaml` is a byte-for-byte copy of the verified model overlay for
+reproducibility. Both saved overlay checksums matched. Keep the deployed
+Azure overlays in place. The model containers' recorded image ID matches
+the local image configuration ID documented above. The Azure AMD64 OCI
+manifest digest or an owner-approved portable identity procedure remains
+required for V01, along with dated owner confirmation of the Hugging Face
+account's EmbeddingGemma terms acceptance and approved private use.
+ARM64 image and offline runtime evidence move with the deferred V04 work.
+
+V02 and V03 passed. V01 remains incomplete, V04 is deferred, and the
+separate M1 integration/regression gate awaits V01.
