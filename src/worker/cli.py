@@ -256,12 +256,13 @@ def prepare_dataset(
     packet: Path = typer.Option(...),
     output: Path = typer.Option(...),
     official: Path | None = typer.Option(None),
+    grouping_policy: str = typer.Option("pair_review"),
 ):
     """Create a provisional grouped split plan without training inputs."""
     from worker.preparation import prepare
 
     try:
-        plan = prepare(root, packet, official)
+        plan = prepare(root, packet, official, grouping_policy)
         data = canonical_json(plan)
         write_bundle(root, output, {"plan.json": data})
     except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -289,6 +290,8 @@ def export_dataset(
     output: Path = typer.Option(...),
     near_review: Path | None = typer.Option(None),
     official: Path | None = typer.Option(None),
+    component_packet: Path | None = typer.Option(None),
+    component_packet_sha: str | None = typer.Option(None),
 ):
     """Release local training inputs only after genuine review gates pass."""
     from worker.preparation import export
@@ -302,6 +305,8 @@ def export_dataset(
             output,
             json.loads(near_review.read_bytes()) if near_review else None,
             official,
+            component_packet,
+            component_packet_sha,
         )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         typer.echo(f"Export blocked: {exc}", err=True)
@@ -325,6 +330,42 @@ def near_review_packet(
         result = make_near_packet(root, packet, plan, plan_sha, output, official)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         typer.echo(f"Near review packet failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("component-review-packet")
+def component_review_packet(
+    root: Path = typer.Option(...),
+    packet: Path = typer.Option(...),
+    plan: Path = typer.Option(...),
+    plan_sha: str = typer.Option(...),
+    output: Path = typer.Option(...),
+    official: Path | None = typer.Option(None),
+):
+    """Create conservative component contact sheets and pending review."""
+    from worker.component_review import make_component_packet
+
+    try:
+        result = make_component_packet(root, packet, plan, plan_sha, output, official)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Component packet failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("check-component-review")
+def component_review_check(
+    packet: Path = typer.Option(...),
+    packet_sha: str = typer.Option(...),
+):
+    """Validate completed review against a separately retained packet digest."""
+    from worker.component_review import check_component_review
+
+    try:
+        result = check_component_review(packet, packet_sha)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"Component review blocked: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(json.dumps(result, indent=2))
 

@@ -109,3 +109,85 @@ lock hashes are in `code-hashes.json`. No commit or staging was performed.
 Remaining: complete real T2 review and receipt, review near candidates, document
 any grouping amendment, regenerate/verify the plan, release reproducibly and
 freeze test membership before tuning. M2.T3 is not passed and M2.T4 is not ready.
+
+## Owner-approved conservative isolation — 25 November 2026
+
+This section supersedes the historical pending-T2 and mandatory-pair-decision
+statements above for the explicitly selected component policy. The original
+pair-review policy remains the default and is backward compatible.
+
+The owner approved `conservative_similarity_component`, algorithm
+`dhash-connected-components-v1`, on 25 November 2026 in the M2 chat. The algorithm
+uses every existing distance <=2 64-bit dHash candidate edge, without changing
+threshold or seed 42. Vertices are eligible exact-byte/pixel groups. Deterministic
+connected components become allocation groups before the existing weighted,
+source-category-stratified allocation. A nontrivial component ID is SHA-256 of
+canonical JSON containing sorted exact-group IDs; singleton IDs stay unchanged.
+Each record retains `exact_group_id`, all source aliases, original asset and
+annotation identities; `group_id` now identifies its allocation group. Similarity
+components do not merge distinct assets or assert duplicates or shared acquisition.
+Verified official train/test constraints take precedence: any component crossing
+those boundaries fails preparation. None are verified for this source copy.
+
+This is conservative isolation, not proof of acquisition independence. Transitive
+chains can overgroup unrelated textures, producing large groups and less balanced
+splits. The heuristic can miss similarities. No threshold/seed tuning or held-out
+performance informed allocation. One-based-inclusive remains the adopted XML
+interpretation; original endpoint semantics remain unverified. Acquisition,
+original archive identity and redistribution terms remain unresolved.
+
+### Commands and approval boundary
+
+- `prepare-dataset --grouping-policy conservative_similarity_component` creates
+  only a provisional plan. Existing `--root`, `--packet`, `--output`, and optional
+  `--official` arguments retain their meanings.
+- `component-review-packet --root ROOT --packet T2_PACKET --plan PLAN --plan-sha
+  PLAN_SHA --output NEW_DIRECTORY` recomputes the plan, verifies T2 review and
+  source identities, then writes contact sheets, individual boxed overlays,
+  `index.html`, immutable `packet.json`, and editable `component-review.json`.
+- `check-component-review --packet PACKET --packet-sha PINNED_SHA` validates static
+  evidence and actual completed review. Save the digest outside the editable
+  packet. Hashes bind bytes; they are not digital signatures or proof that someone
+  visually reviewed the images.
+- Future `export-dataset` use with this policy requires `--component-packet` and
+  `--component-packet-sha`. It recomputes the plan, rechecks T2, validates the
+  completed component review, and embeds its receipt. Missing/stale/modified or
+  incomplete evidence blocks export. The original `--near-review` path remains
+  available for original-policy plans.
+
+Review every image in each component sheet, opening the linked enlarged overlay
+when needed. Record `accept_isolation` only when the conservative grouping is
+acceptable and no unresolved source/annotation issue requires action; write a
+specific observed note. Otherwise record `unresolved` and the affected paths and
+reason. This does not declare pairs distinct or duplicates. Enter the actual
+reviewer and timezone-qualified completion timestamp, and confirm
+`methodology_approved: true` for the bound methodology/plan. Leave IDs/digests
+unchanged. All components must have genuine completed decisions. Findings needing
+annotation changes or additional quarantine require a separate evidence-backed
+amendment and regenerated plan/review; never edit raw data to resolve them.
+
+### Verified provisional result (not a frozen release)
+
+Evidence: `artifacts/m2t3-components-mHGL5B/`, baseline `42a2111`.
+Both CLI entry points produced byte-identical plans and packets.
+
+- 1,797 eligible images allocated exactly once: train 1,287; validation 258;
+  test 252. All six annotation classes are represented in every split.
+- Three preserved exclusions: patches_101.jpg, patches_105.jpg, scratches_103.jpg.
+- 1,662 allocation groups; 25 nontrivial components covering 160 images. Largest
+  component: 73 images. All 1,083 candidate edges remain within splits.
+- Original asset/annotation lineage and all historical candidate records are
+  unchanged. All 3,601 raw files / 28,208,067 bytes match the original T1 manifest.
+- Plan SHA-256: `87e98bff05054ad5038dd2310be6b7eeabae75697aeb1e42340a71fe72a8b631`.
+- Review packet SHA-256: `932f02c1c7a559cf353a16da3d3f1b29221caf188854380bc1501ace8a6c3415`.
+- 71 focused preparation, validation/review, inventory, CLI and catalog-input
+  compatibility tests passed. Locked dependency check, Ruff lint/format, CLI info
+  and diff check passed. No M1 runtime checks were repeated.
+- `focused.log` preserves an initial test-command error (nonexistent
+  `tests/unit/test_review.py`); `focused-corrected.log` is the passing run.
+- Pending-review validator exits 1 as required. No human component decision,
+  passing real review receipt, frozen membership or final training export exists.
+
+The original 1,083 pending pair decisions remain historical evidence. The next
+release gate is genuine review of all 25 components, followed by a passing bound
+receipt, final DQ08/membership freeze, reproducible export and export verification.

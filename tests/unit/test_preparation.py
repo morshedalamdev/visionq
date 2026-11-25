@@ -303,3 +303,157 @@ def test_near_packet_requires_completed_t2_review(prepared, tmp_path):
             tmp_path / "blocked",
         )
     assert not (tmp_path / "blocked").exists()
+
+
+def test_component_transitivity_identity_and_isolation(prepared):
+    from worker.component_review import component_plan
+
+    root, packet = prepared
+    base = prepare(root, packet)
+    ids = [r["group_id"] for r in base["records"][:3]]
+    base["near_candidates"] = [{"groups": ids[:2]}, {"groups": ids[1:]}]
+    plan = component_plan(base)
+    assert component_plan(base) == plan
+    by_exact = {r["exact_group_id"]: r for r in plan["records"]}
+    assert len({by_exact[g]["group_id"] for g in ids}) == 1
+    assert len({by_exact[g]["split"] for g in ids}) == 1
+    assert len(plan["records"]) == len(base["records"])
+    assert plan["excluded"] == base["excluded"]
+    for old in base["records"]:
+        new = by_exact[old["group_id"]]
+        assert {
+            k: v
+            for k, v in new.items()
+            if k not in ("split", "group_id", "exact_group_id")
+        } == {k: v for k, v in old.items() if k not in ("split", "group_id")}
+    reverse = json.loads(canonical_json(base))
+    reverse["near_candidates"].reverse()
+    assert component_plan(reverse)["component_manifest"] == plan["component_manifest"]
+    official = {p: "train" for r in base["records"] for p in r["aliases"]}
+    official[base["records"][1]["source"]] = "test"
+    base["official"] = {"membership": official}
+    with pytest.raises(ValueError, match="official split"):
+        component_plan(base)
+
+
+def test_component_packet_gate_and_tampering(prepared, tmp_path, monkeypatch):
+    from worker.component_review import (
+        POLICY_NAME,
+        check_component_review,
+        make_component_packet,
+    )
+
+    root, packet = prepared
+    # Three similar distinct fixture images; the others have isolated hashes.
+    counter = iter([0, 1, 3] + [int("aa" * 8, 16) ^ (i << 8) for i in range(21)])
+    hashes = {}
+
+    def fixed(data):
+        if data not in hashes:
+            hashes[data] = next(counter)
+        return hashes[data]
+
+    monkeypatch.setattr("worker.preparation.dhash", fixed)
+    plan = prepare(root, packet, grouping_policy=POLICY_NAME)
+    path = tmp_path / "component-plan.json"
+    path.write_bytes(canonical_json(plan))
+    digest = sha256(path.read_bytes())
+    out = tmp_path / "components"
+    result = make_component_packet(root, packet, path, digest, out)
+    repeat = tmp_path / "repeat-components"
+    assert make_component_packet(root, packet, path, digest, repeat) == result
+    assert {
+        p.relative_to(out): p.read_bytes() for p in out.rglob("*") if p.is_file()
+    } == {
+        p.relative_to(repeat): p.read_bytes() for p in repeat.rglob("*") if p.is_file()
+    }
+    pin = result["packet_sha256"]
+    with pytest.raises(ValueError):
+        check_component_review(out, pin, plan)
+    review_path = out / "component-review.json"
+    review = json.loads(review_path.read_bytes())
+    review.update(
+        reviewer="Synthetic test only",
+        reviewed_at="2026-11-25T10:00:00+08:00",
+        methodology_approved=True,
+    )
+    for item in review["items"]:
+        item.update(decision="accept_isolation", notes="Known synthetic fixture")
+    review_path.write_bytes(canonical_json(review))
+    assert check_component_review(out, pin, plan)["status"] == "passed"
+    with pytest.raises(ValueError, match="checksum"):
+        check_component_review(out, "0" * 64, plan)
+    saved = json.loads(canonical_json(review))
+    review["items"][0]["decision"] = "pending"
+    review_path.write_bytes(canonical_json(review))
+    with pytest.raises(ValueError, match="incomplete"):
+        check_component_review(out, pin, plan)
+    review["items"] = []
+    review_path.write_bytes(canonical_json(review))
+    with pytest.raises(ValueError, match="membership"):
+        check_component_review(out, pin, plan)
+    review = saved
+    review_path.write_bytes(canonical_json(review))
+    stale = json.loads(canonical_json(plan))
+    stale["excluded"].append("changed")
+    with pytest.raises(ValueError, match="stale"):
+        check_component_review(out, pin, stale)
+    review["algorithm"] = "changed"
+    review_path.write_bytes(canonical_json(review))
+    with pytest.raises(ValueError, match="binding"):
+        check_component_review(out, pin, plan)
+    (out / "index.html").write_text("tampered")
+    with pytest.raises(ValueError, match="evidence changed"):
+        check_component_review(out, pin, plan)
+
+
+def test_component_export_requires_review_and_preserves_quarantine(prepared, tmp_path):
+    from worker.component_review import POLICY_NAME, make_component_packet
+
+    root, packet = prepared
+    plan = prepare(root, packet, grouping_policy=POLICY_NAME)
+    path = tmp_path / "plan.json"
+    path.write_bytes(canonical_json(plan))
+    digest = sha256(path.read_bytes())
+    out = tmp_path / "component-review"
+    result = make_component_packet(root, packet, path, digest, out)
+    with pytest.raises(ValueError, match="component review packet"):
+        export(root, packet, path, digest, tmp_path / "blocked")
+    with pytest.raises(ValueError, match="reviewer required"):
+        export(
+            root,
+            packet,
+            path,
+            digest,
+            tmp_path / "blocked",
+            component_packet=out,
+            component_packet_sha=result["packet_sha256"],
+        )
+    review_path = out / "component-review.json"
+    review = json.loads(review_path.read_bytes())
+    review.update(
+        reviewer="Synthetic fixture only",
+        reviewed_at="2026-11-25T10:00:00+08:00",
+        methodology_approved=True,
+    )
+    for item in review["items"]:
+        item.update(decision="accept_isolation", notes="Synthetic known inputs")
+    review_path.write_bytes(canonical_json(review))
+    exported = export(
+        root,
+        packet,
+        path,
+        digest,
+        tmp_path / "synthetic-export",
+        component_packet=out,
+        component_packet_sha=result["packet_sha256"],
+    )
+    assert exported["assets"] == 24
+    t2path = packet / "review.json"
+    t2 = json.loads(t2path.read_bytes())
+    t2["items"][0]["decision"] = "quarantine"
+    excluded = t2["items"][0]["image"]
+    t2path.write_bytes(canonical_json(t2))
+    updated = prepare(root, packet, grouping_policy=POLICY_NAME)
+    assert excluded in updated["excluded"]
+    assert all(excluded not in r["aliases"] for r in updated["records"])

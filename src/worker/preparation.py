@@ -134,7 +134,19 @@ def dhash(data):
     )
 
 
-def prepare(root: Path, packet: Path, official_path=None):
+def prepare(
+    root: Path, packet: Path, official_path=None, grouping_policy="pair_review"
+):
+    if grouping_policy != "pair_review":
+        from worker.component_review import POLICY_NAME, component_plan
+
+        if grouping_policy != POLICY_NAME:
+            raise ValueError("unknown grouping policy")
+        return component_plan(prepare(root, packet, official_path))
+    return _prepare(root, packet, official_path)
+
+
+def _prepare(root: Path, packet: Path, official_path=None):
     """Inspect inputs and propose membership. This does not release data."""
     report_bytes = (packet / "audit.json").read_bytes()
     report = json.loads(report_bytes)
@@ -298,7 +310,15 @@ def prepare(root: Path, packet: Path, official_path=None):
 
 
 def export(
-    root, packet, plan_path, plan_sha, output, near_review=None, official_path=None
+    root,
+    packet,
+    plan_path,
+    plan_sha,
+    output,
+    near_review=None,
+    official_path=None,
+    component_packet=None,
+    component_packet_sha=None,
 ):
     """Fail closed on incomplete human review, drift, or unresolved near duplicates."""
     receipt = check_review(packet)
@@ -306,13 +326,27 @@ def export(
     if sha256(data) != plan_sha:
         raise ValueError("preparation plan checksum mismatch")
     plan = json.loads(data)
-    if prepare(root, packet, official_path) != plan:
+    if (
+        prepare(
+            root, packet, official_path, plan["policy"].get("grouping", "pair_review")
+        )
+        != plan
+    ):
         raise ValueError("preparation plan or reviewed inputs changed; regenerate plan")
     if any(not all(s["boxes_per_class"].values()) for s in plan["stats"].values()):
         raise ValueError(
             "each split requires all box classes; review grouping feasibility"
         )
-    if plan["near_candidates"]:
+    component_receipt = None
+    if plan["policy"].get("grouping") == "conservative_similarity_component":
+        from worker.component_review import check_component_review
+
+        if component_packet is None or component_packet_sha is None:
+            raise ValueError("component review packet and pinned digest required")
+        component_receipt = check_component_review(
+            component_packet, component_packet_sha, plan
+        )
+    elif plan["near_candidates"]:
         if near_review is None:
             raise ValueError("near-duplicate review required")
         if near_review.get("plan_sha256") != plan_sha or not near_review.get(
@@ -367,6 +401,11 @@ def export(
             "plan": plan,
             "review_receipt": receipt,
             "near_review": near_review,
+            **(
+                {"component_review_receipt": component_receipt}
+                if component_receipt
+                else {}
+            ),
             "loader_contract": "Set dataset path to resolved export root; imgsz=320; loader owns letterbox; record actual transforms; train-only augmentation",
         }
     )
