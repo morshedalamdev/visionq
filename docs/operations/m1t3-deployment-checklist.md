@@ -225,15 +225,27 @@ $0.25 disk, $0.08 public IP and under $0.01 storage. Delayed charges may apply.
 `compose.t3.yaml` is a byte-for-byte copy of the verified model overlay for
 reproducibility. Both saved overlay checksums matched. Keep the deployed
 Azure overlays in place. The model containers' recorded image ID matches
-the local image configuration ID documented above. The Azure AMD64 OCI
-manifest digest or an owner-approved portable identity procedure remains
-required for V01, along with dated owner confirmation of the Hugging Face
-account's EmbeddingGemma terms acceptance and approved private use.
+the local image configuration ID documented above. The approved initial-release identity procedure below satisfies AMD64 identity. The dated terms record remains incomplete.
 ARM64 image and offline runtime evidence move with the deferred V04 work.
 
 V02 and V03 passed. V01 remains incomplete, V04 is deferred, and the
 separate M1 integration/regression gate awaits V01.
 
-### Proposed V01 revision awaiting owner approval
+### Approved V01 revision — 25 November 2026
 
 For initial release, identify the tested AMD64 runtime using the exact vLLM source revision, recorded Docker build parameters, local image configuration ID matched to both benchmark containers, pinned model revisions and snapshot SHA-256 manifests, verified Compose fingerprints and the saved successful live probe. Defer portable OCI export and platform manifest digest capture to the next required Azure session. The original digest criterion remains unpassed. Record dated owner confirmation of gated EmbeddingGemma account access, accepted terms and approved private project use separately.
+
+The owner approved the AMD64 identity procedure above. The 24 November deployment-session record identifies Linux AMD64, vLLM 0.15.1 and the source, PyTorch and configuration ID in the identity table and paragraph above. From `/opt/visionq/runtime/vllm` the owner recorded this command (the Azure log was not retrieved):
+
+```sh
+sudo docker build --platform linux/amd64 --file docker/Dockerfile.cpu --target vllm-openai \
+  --build-arg VLLM_CPU_DISABLE_AVX512=true --build-arg VLLM_CPU_AVX2=1 \
+  --build-arg VLLM_CPU_AVX512=0 --build-arg VLLM_CPU_AVX512BF16=0 \
+  --build-arg VLLM_CPU_AVX512VNNI=0 --build-arg VLLM_CPU_AMXBF16=0 \
+  --build-arg max_jobs=2 --tag visionq-vllm:0.15.1-avx2 --progress plain . \
+  2>&1 | tee /opt/visionq/logs/vllm-0.15.1-avx2-build.log
+```
+
+Runtime identity is satisfied under the revised procedure. Owner confirmed account access, snapshot download and terms review on 24 November 2026. Acceptance date and affirmative confirmation covering intended private academic use are outstanding.
+
+Independent local regression at `8630367` passed all 321 locked tests with zero skips in 58.14 seconds using disposable source and restore databases. The seeded row and artifact checksum survived the Compose PostgreSQL restart. Hosted Foundation success for this revision remains unverified.

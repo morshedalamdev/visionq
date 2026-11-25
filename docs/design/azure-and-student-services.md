@@ -131,7 +131,7 @@ CI supplements the user's task checks. A green workflow does not establish that 
 | M2.T4 | Back up a released, rights-reviewed dataset manifest and complete catalog; test resume and restore without double-counting. Record local versus Azure copies |
 | M3.T1–T3 | Record training/inference host and cost, choose a measured device path before test; checkpoint and prediction backups. Azure GPU is not presumed |
 | M4–M5 | Develop SQL/backend and dashboard with local results and clearly labeled interface fixtures. After M4.T1 and M4.T4, pass M1.T3 and the M1 integration gate. Finish M4.T2, M4.T3 and M4 integration before M5. Pin one hardware profile for all final LLM conditions. Retain snapshot/corpus/model hashes when moving hosts |
-| M6.T1 | Fresh local restore from Blob, full offline workflow, reopened history/evidence, cloud isolation and deallocation checks; document cost/backup/cleanup runbook |
+| M6.T1 | Fresh local restore from Blob, post-release V04 offline workflow, reopened history/evidence, cloud isolation and deallocation checks; document cost/backup/cleanup runbook |
 | M6.T4 | Record final credit/resource ledger, December demo arrangements and post-defense retention/expiry handoff |
 
 All additions inherit the mandatory task/module gates in [WORKFLOW](../agent/WORKFLOW.md). The Stage 1 record supports a future provisioning decision. Runtime and research claims require the actual task evidence.

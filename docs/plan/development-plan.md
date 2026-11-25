@@ -5,8 +5,7 @@ complete under its recorded scope and M1.T2 passed V01–V08 at `81f563a`.
 M2/M3 synthetic development has advanced, but the M2 real release and the
 real-data M3 gate remain open. M4.T1–T4 pass local synthetic-development
 implementation and M4 is locally code-complete. The Docker build and private
-Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 passed its Azure retrieval and benchmark checks. Azure serving identity
-remains open and the owner deferred local offline model serving until after
+Compose path were reverified on 22 November for ARM64 and AMD64. M1.T3 passed its Azure retrieval and benchmark checks. Azure serving identity is accepted under the revised procedure. The actual date of confirmed EmbeddingGemma terms acceptance remains open and the owner deferred local offline model serving until after
 initial release. The M1 module gate is pending. Public React authentication and the red hosted workflow are separate
 deployment blockers. The [task register](../agent/TASK_LOG.md) and
 [M4 Azure readiness report](../operations/m4-azure-readiness.md) preserve the
@@ -60,12 +59,12 @@ On resumption, Stage 2 verifies access and terms for the pinned `Qwen/Qwen3-4B-I
 
 Required M1.T3 evidence (the user runs the checks and shares results):
 
-1. **Services and identity:** Start the generation and pooling servers together. Check their served aliases and actual chat/embedding requests. Save exact model revisions/file hashes, per-platform image digests, vLLM version, dtype, context/cache caps and Docker resource limits. Health alone does not pass.
+1. **Services and identity:** Start the generation and pooling servers together. Check their served aliases and actual chat/embedding requests. Apply the owner-approved initial-release AMD64 identity procedure in the M1.T3 deployment checklist. Save exact model revisions/file hashes, vLLM version, dtype, context/cache caps and Docker resource limits. Health alone does not pass.
 2. **Retrieval and tool use:** Index a titled synthetic passage and an unrelated distractor, then embed a query through the same pooling endpoint. Verify finite, nonzero vectors of the pinned width and the expected passage ranks first by cosine similarity. Validate a real schema-constrained plan, execute one scoped metric tool through MCP and validate an answer against its fixture value. A failed endpoint must surface an error with no hosted fallback.
 3. **VM feasibility:** With both services resident, all five scoped fixture questions must return schema-valid responses without OOM within 120 seconds **each, end to end**. Include at least one retrieval question and one metric question. Record per-question and median latency, combined peak RAM, relevant device, estimated/observed credit use, restricted SSH access and verified VM deallocation.
 4. **Local fallback (deferred until after initial release by owner approval):** On the intended local Docker host, restart both cached services with external egress blocked and internal networking retained. From this fresh start, generate a schema-valid answer and embed a query using the mounted snapshots. Record evidence for both paths; results from the Azure VM do not pass this check.
 
-M1.T3 establishes feasibility for the later M4 integration and M5 research. Keep the separate full agent evaluation and final offline recovery demonstration. If the chosen CPU, RAM, model access, VM capacity or remaining credit blocks a required check, record the failure, revisit feasibility with the Architecture chat and reforecast. Any proposed model change needs an explicit decision. For initial release, M1 closes after V01–V03 and the separate integration/regression gate pass. V04 remains deferred. Azure is the primary live inference environment. Local development uses synthetic fixtures and mocked endpoints.
+M1.T3 establishes feasibility for the later M4 integration and M5 research. Keep the separate full agent evaluation and post-release offline recovery demonstration. If the chosen CPU, RAM, model access, VM capacity or remaining credit blocks a required check, record the failure, revisit feasibility with the Architecture chat and reforecast. Any proposed model change needs an explicit decision. For initial release, M1 closes after V01–V03 and the separate integration/regression gate pass. V04 remains deferred. Azure is the primary live inference environment. Local development uses synthetic fixtures and mocked endpoints.
 
 ## Module 2 — Dataset Ingestion and Validation
 
@@ -236,7 +235,7 @@ Original estimate 32–42 hours including Azure recovery/operations evidence. St
 
 | Task | Work and deliverable | Done when |
 |---|---|---|
-| M6.T1 | Validate Compose workflow, offline inference, failure recovery, fresh local restore from Blob, access isolation, deallocation and resource/cost runbook | Post-release V04 evidence shows both cached local AI services restart and work offline; restored history/answers/counts/hashes match; cloud access/cost/deallocation checks have evidence |
+| M6.T1 | Validate initial-release Compose workflow, failure recovery, fresh local restore from Blob, access isolation, deallocation and resource/cost runbook | Initial release requires restore and recovery checks. Verify both cached AI services restart and work offline after release. Restored history/answers/counts/hashes match; cloud access/cost/deallocation checks have evidence |
 | M6.T2 | Assemble report from earlier module notes: introduction, literature, requirements, data, architecture, methods and actual results | Full report draft target **28 November**, with actual results and no placeholders; fix M6.T1 failures first |
 | M6.T3 | Complete figures/tables, limitations, reproducibility appendix, citation audit and proofreading; seek feedback | Submission-ready project/report target **29 November**; results trace to saved experiments; unavailable feedback is disclosed |
 | M6.T4 | Prepare demo/slides/recording, source/reproduction package, final cost/resource ledger, December rehearsal and year-long retention/expiry handoff | Initial rehearsal and final package ready by **30 November** or earlier official deadline; actual submission tracked separately; later cleanup requires verified backups and user action |
@@ -253,10 +252,10 @@ Original estimate 32–42 hours including Azure recovery/operations evidence. St
 | Resume M1.T3 → M1 gate | Two verified Docker services, real retrieval and MCP metric probe, five timed VM questions (local offline restart deferred to post-release recovery) | Feasibility limits, resource use and cost |
 | Resume M4.T2 → M4.T3 → M4 gate | Rebuildable real index, working bounded MCP service and evidence-linked UI | Retrieval and tool contracts |
 | M5 → M5 gate | Agent integration, frozen benchmark, three evaluated arms and same-draft ablation | LLM methods, grading and failure analysis |
-| M6 → M6 gate | Offline recovery, reproducible experiments, final report and demo package by 30 November | Assemble and submit the project and report |
+| M6 → M6 gate | Initial-release restore and recovery, reproducible experiments, final report and demo package by 30 November | Assemble and submit the project and report |
 | 1–7 December, then approximate second week | Rehearsal from the frozen package, then defense | Explain and demonstrate saved evidence |
 
-Track the critical path at each gate. If measured remaining work exceeds the time available before **30 November**, bring the estimate and scope tradeoffs to the Architecture chat immediately. Preserve the approved research baselines, offline demonstration, reproducibility evidence and all required checks. The exact defense date remains unconfirmed.
+Track the critical path at each gate. If measured remaining work exceeds the time available before **30 November**, bring the estimate and scope tradeoffs to the Architecture chat immediately. Preserve the approved research baselines, post-release offline demonstration, reproducibility evidence and all required checks. The exact defense date remains unconfirmed.
 
 After the defense, follow the [twelve-month operation plan](../design/azure-and-student-services.md): verify archives, remove idle VM/disks/IP resources, retain compact Blob backups, check credit monthly and restore quarterly, and export before expiry. This is a maintenance horizon, not a seventh thesis module or automatic ongoing work by Codex.
 
