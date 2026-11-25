@@ -233,3 +233,7 @@ ARM64 image and offline runtime evidence move with the deferred V04 work.
 
 V02 and V03 passed. V01 remains incomplete, V04 is deferred, and the
 separate M1 integration/regression gate awaits V01.
+
+### Proposed V01 revision awaiting owner approval
+
+For initial release, identify the tested AMD64 runtime using the exact vLLM source revision, recorded Docker build parameters, local image configuration ID matched to both benchmark containers, pinned model revisions and snapshot SHA-256 manifests, verified Compose fingerprints and the saved successful live probe. Defer portable OCI export and platform manifest digest capture to the next required Azure session. The original digest criterion remains unpassed. Record dated owner confirmation of gated EmbeddingGemma account access, accepted terms and approved private project use separately.

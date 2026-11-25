@@ -236,7 +236,7 @@ Original estimate 32–42 hours including Azure recovery/operations evidence. St
 
 | Task | Work and deliverable | Done when |
 |---|---|---|
-| M6.T1 | Validate Compose workflow, offline inference, failure recovery, fresh local restore from Blob, access isolation, deallocation and resource/cost runbook | Cached local AI works offline; restored history/answers/counts/hashes match; cloud access/cost/deallocation checks have evidence |
+| M6.T1 | Validate Compose workflow, offline inference, failure recovery, fresh local restore from Blob, access isolation, deallocation and resource/cost runbook | Post-release V04 evidence shows both cached local AI services restart and work offline; restored history/answers/counts/hashes match; cloud access/cost/deallocation checks have evidence |
 | M6.T2 | Assemble report from earlier module notes: introduction, literature, requirements, data, architecture, methods and actual results | Full report draft target **28 November**, with actual results and no placeholders; fix M6.T1 failures first |
 | M6.T3 | Complete figures/tables, limitations, reproducibility appendix, citation audit and proofreading; seek feedback | Submission-ready project/report target **29 November**; results trace to saved experiments; unavailable feedback is disclosed |
 | M6.T4 | Prepare demo/slides/recording, source/reproduction package, final cost/resource ledger, December rehearsal and year-long retention/expiry handoff | Initial rehearsal and final package ready by **30 November** or earlier official deadline; actual submission tracked separately; later cleanup requires verified backups and user action |
@@ -250,7 +250,7 @@ Original estimate 32–42 hours including Azure recovery/operations evidence. St
 | M3 synthetic T1 → T2 → T3 complete; real M3 gate open | Frozen synthetic YOLO11n and persisted prediction snapshots; M2 real release still blocks real acceptance | Detector software methods and synthetic-development results |
 | M4.T1 using labeled synthetic evidence, then reassess real M2/M3 gate | Metric snapshots and paired-scope contracts without model services | Database analytics evidence |
 | M4.T4, then park M4 | Real run history/performance structure and fixture-labeled AI view | Database and UI evidence |
-| Resume M1.T3 → M1 gate | Two verified Docker services, real retrieval and MCP metric probe, five timed VM questions, local offline restart | Feasibility limits, resource use and cost |
+| Resume M1.T3 → M1 gate | Two verified Docker services, real retrieval and MCP metric probe, five timed VM questions (local offline restart deferred to post-release recovery) | Feasibility limits, resource use and cost |
 | Resume M4.T2 → M4.T3 → M4 gate | Rebuildable real index, working bounded MCP service and evidence-linked UI | Retrieval and tool contracts |
 | M5 → M5 gate | Agent integration, frozen benchmark, three evaluated arms and same-draft ablation | LLM methods, grading and failure analysis |
 | M6 → M6 gate | Offline recovery, reproducible experiments, final report and demo package by 30 November | Assemble and submit the project and report |
