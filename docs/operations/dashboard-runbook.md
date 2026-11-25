@@ -94,3 +94,10 @@ artifact root. Requests without a bearer token fail. Path traversal, unknown
 artifact hashes, unsupported files, invalid dates/UUIDs, oversized uploads and
 incompatible analytics scopes return explicit client errors. Public hosting
 topology remains unapproved and is not configured here.
+
+
+GET `/health` checks process liveness. GET `/ready` checks that an API token is
+configured, the artifact root is accessible and the upload table can be read.
+The API can start with document search disabled. For live search, set
+`VISIONQ_API_EMBEDDING_BACKEND=openai-compatible` and supply the same private
+vLLM model, revision, dimensions and prefixes used to build the index.

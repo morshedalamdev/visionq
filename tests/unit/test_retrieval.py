@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -264,3 +265,49 @@ def test_manifest_load_rejects_invalid_utf8(tmp_path):
 
     with pytest.raises(CorpusConflict, match="UTF-8"):
         load_manifest(path, tmp_path)
+
+
+def test_zero_query_from_custom_backend_rejected_before_storage():
+    from retrieval.embeddings import EmbeddingProfile
+    from retrieval.service import EmbeddingCompatibilityError, search
+
+    class Zero:
+        profile = EmbeddingProfile(
+            backend="test",
+            model="test",
+            revision="1",
+            dimensions=2,
+            normalization="none",
+        )
+
+        def embed_queries(self, texts):
+            return [[0.0, 0.0]]
+
+    with pytest.raises(EmbeddingCompatibilityError, match="all zero"):
+        search(None, Zero(), "corpus", "index", "query")
+
+
+def test_adapter_rejects_invalid_service_item_without_sorting_it(monkeypatch):
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [None]}
+
+    monkeypatch.setattr("retrieval.embeddings.httpx.post", lambda *a, **kw: Response())
+    backend = OpenAICompatibleEmbeddingBackend("http://localhost/v1", "fixture", "1", 2)
+    with pytest.raises(RuntimeError, match="invalid indexes"):
+        backend.embed_queries(["text"])
+
+
+def test_adapter_rejects_contradictory_served_model(monkeypatch):
+    response = httpx.Response(
+        200,
+        request=httpx.Request("POST", "http://localhost/v1/embeddings"),
+        json={"model": "different", "data": [{"index": 0, "embedding": [0, 1]}]},
+    )
+    monkeypatch.setattr("retrieval.embeddings.httpx.post", lambda *a, **kw: response)
+    backend = OpenAICompatibleEmbeddingBackend("http://localhost/v1", "fixture", "1", 2)
+    with pytest.raises(RuntimeError, match="model"):
+        backend.embed_queries(["fixture"])

@@ -9,7 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.engine import Engine
 
-from analytics.metrics import AnalyticsScope, metric_catalogue
+from analytics.metrics import (
+    AnalyticsScope,
+    MetricDefinitionError,
+    metric_catalogue,
+    normalize_metric_names,
+)
 from analytics.service import (
     AnalyticsCompatibilityError,
     AnalyticsScopeError,
@@ -152,6 +157,7 @@ def compare_context_snapshot(
     engine: Engine = Depends(engine_for),
 ) -> dict:
     try:
+        selected = list(normalize_metric_names(metric_names))
         snapshot = read_snapshot(engine, snapshot_id)
         payload = snapshot["payload"]
         if payload.get("format") != "visionq-question-snapshot-v2":
@@ -168,8 +174,10 @@ def compare_context_snapshot(
         return compare_payloads(
             scope_set["left"],
             scope_set["right"],
-            metric_names,
+            selected,
         )
+    except MetricDefinitionError as exc:
+        raise HTTPException(422, str(exc)) from exc
     except (
         AnalyticsCompatibilityError,
         AnalyticsScopeError,

@@ -70,7 +70,9 @@ def restore_engine(postgres_engine, monkeypatch):
         engine = database()
 
     problems = []
-    if engine.url.host not in ("127.0.0.1", "localhost"):
+    if engine.url.database != "visionq_t4_test":
+        problems.append("restore tests require database visionq_t4_test")
+    elif engine.url.host not in ("127.0.0.1", "localhost"):
         problems.append("restore tests require loopback PostgreSQL")
     else:
         identity = text("SELECT system_identifier FROM pg_control_system()")

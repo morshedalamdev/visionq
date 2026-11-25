@@ -286,3 +286,11 @@ def test_staged_data_tamper_and_test_partition_detected(tmp_path):
     (run / "dataset" / "labels" / "test").mkdir(parents=True)
     with pytest.raises(ValueError):
         training.verify_training(run, digest)
+
+
+def test_create_only_record_preserves_neighboring_file(tmp_path):
+    neighbor = tmp_path / "intent.json.tmp"
+    neighbor.write_bytes(b"independent work")
+    training.write_new(tmp_path / "intent.json", b"record")
+    assert neighbor.read_bytes() == b"independent work"
+    assert (tmp_path / "intent.json").read_bytes() == b"record"

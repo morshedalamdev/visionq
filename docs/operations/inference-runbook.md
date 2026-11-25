@@ -102,3 +102,10 @@ uv run --locked python -m pytest \
 
 PostgreSQL skips are not passes. For the strict focused command above, any skip
 fails.
+
+
+Newly registered model contracts record `preprocessing=grayscale-rgb`.
+The predictor converts the source to luminance and repeats it across the RGB
+channels, matching the release export. Contracts created before this field
+retain their original RGB decoding when resumed. The config digest gives the
+corrected contract a distinct model and run identity.

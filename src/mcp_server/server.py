@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 from contextlib import asynccontextmanager
+from threading import BoundedSemaphore
 from typing import Annotated, Callable, TypeVar
 from uuid import UUID
 
@@ -12,6 +13,8 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import Field
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -39,7 +42,7 @@ class BearerMiddleware(BaseHTTPMiddleware):
         self.token = token
 
     async def dispatch(self, request: Request, call_next):
-        if request.method == "GET" and request.url.path == "/health":
+        if request.method == "GET" and request.url.path in {"/health", "/ready"}:
             return await call_next(request)
         supplied = request.headers.get("Authorization", "")
         expected = f"Bearer {self.token}"
@@ -56,11 +59,22 @@ async def bounded_call(
     function: Callable[[], ResultT],
     timeout_seconds: float,
     tool_name: str,
+    slots: BoundedSemaphore,
 ) -> ResultT:
+    def run():
+        # Cancellation ends the await, but this synchronous job owns its slot
+        # until its database or embedding call actually returns.
+        if not slots.acquire(blocking=False):
+            raise MCPToolError("MCP workers are busy")
+        try:
+            return function()
+        finally:
+            slots.release()
+
     try:
         with anyio.fail_after(timeout_seconds):
             return await anyio.to_thread.run_sync(
-                function,
+                run,
                 abandon_on_cancel=True,
             )
     except TimeoutError as exc:
@@ -74,6 +88,7 @@ def create_mcp_server(
     embedding_backend: EmbeddingBackend,
     settings: MCPSettings,
 ) -> MCPServer:
+    slots = BoundedSemaphore(8)
     service = MCPToolService(
         MCPContext(
             engine=engine,
@@ -94,6 +109,22 @@ def create_mcp_server(
     async def health(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
+    @server.custom_route("/ready", methods=["GET"])
+    async def ready(_request: Request) -> JSONResponse:
+        def probe():
+            with engine.connect() as connection:
+                connection.execute(
+                    text(
+                        "SELECT pinned_retrieval_index_id FROM analytics_snapshots LIMIT 0"
+                    )
+                )
+
+        try:
+            await bounded_call(probe, settings.tool_timeout_seconds, "readiness", slots)
+        except (SQLAlchemyError, ToolError):
+            return JSONResponse({"status": "unavailable"}, status_code=503)
+        return JSONResponse({"status": "ready"})
+
     @server.tool()
     async def get_batch_metrics(
         snapshot_id: UUID,
@@ -113,6 +144,7 @@ def create_mcp_server(
             ),
             settings.tool_timeout_seconds,
             "get_batch_metrics",
+            slots,
         )
 
     @server.tool()
@@ -136,6 +168,7 @@ def create_mcp_server(
             ),
             settings.tool_timeout_seconds,
             "compare_batches",
+            slots,
         )
 
     @server.tool()
@@ -153,6 +186,7 @@ def create_mcp_server(
             ),
             settings.tool_timeout_seconds,
             "get_quality_report",
+            slots,
         )
 
     @server.tool()
@@ -165,6 +199,7 @@ def create_mcp_server(
             lambda: service.run_provenance(snapshot_id, inference_run_id),
             settings.tool_timeout_seconds,
             "get_run_provenance",
+            slots,
         )
 
     @server.tool()
@@ -186,6 +221,7 @@ def create_mcp_server(
             ),
             settings.tool_timeout_seconds,
             "search_documents",
+            slots,
         )
 
     return server

@@ -2,6 +2,7 @@
 
 import json
 import platform
+import sys
 from contextlib import contextmanager
 from importlib.metadata import version
 from pathlib import Path
@@ -33,6 +34,7 @@ from worker.validation import (
 app = typer.Typer(
     help="VisionQ research application commands.",
     no_args_is_help=True,
+    rich_markup_mode="rich" if sys.stderr.isatty() else None,
     add_completion=False,
 )
 

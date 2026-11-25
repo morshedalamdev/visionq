@@ -1,4 +1,58 @@
-# M4 code-complete / Azure readiness check — 22 November 2026
+# Private VM feasibility handoff
+
+## Current status — 25 November 2026
+
+The audit began on clean `main` at
+`0e37ac8e327afda98f1f1b37d935a8cb673e18c0`. The checkout contains the T4
+Compose file, tracked synthetic exports, React CI, pinned base images and
+service health checks. The [Foundation run on that commit](https://github.com/morshedalamdev/visionq/actions/runs/45008890889)
+passed its foundation and React jobs and failed its catalog job. Local audit
+edits are uncommitted and have no hosted result.
+
+### Local software regression
+
+| Check | 24–25 November evidence |
+|---|---|
+| Python on the Mac | Python 3.11.17, locked CLI and module entry points agree. Ruff lint and format pass. Default pytest 226 passed and 86 skipped. |
+| Strict PostgreSQL suite | Clean HEAD reproduced the one catalog CLI failure with 296 passes and 10,212 DOMAIN warnings. Corrected tree passed all 312 tests with zero failures, skips or warnings. |
+| DB lifecycle | Independent loopback clusters, seeded upgrade, supported 0007 downgrade/re-upgrade, catalog restore with matching rows and bytes, and API restart with matching response and image hashes passed. |
+| MCP and HTTP | All five tools passed over Streamable HTTP using the deployed read-only role with labeled fixture embeddings. The role lacked table write privileges even in a read-write transaction. |
+| React | Node 24.22.3 locked install, 10 tests, TypeScript and production build passed. A real browser verified filters, inspection and overlay, scoped upload, history pagination, error handling and fixture labels. |
+| Distribution | Source distribution built. Noneditable wheel installed and exercised outside the repository. All 41 Python module files matched wheel membership. Native ARM64 and emulated AMD64 application images passed imports and source/migration hash checks. Docker Hub timed out for AMD64. The successful build fetched the identical Python base digest through its mirror. |
+| Private startup | Fresh ARM64 Compose database, migration and grants, API/MCP readiness, internal networking and service restart passed without model services. The smoke override removed the loopback API publication and used a unique image tag and volume. |
+
+The audit fixed machine-readable CLI errors, catalog domain comparisons, staging
+limits, worker preprocessing identity, create-only evidence publication, scoped
+analytics, retrieval errors, MCP capacity after timeout and dashboard navigation.
+A local independent diff review and focused recheck covered the changes.
+The operator's ignored audit directory contains commands, exact hashes and
+the per-file walkthrough. Versions, fixtures and base-image pins were reviewed
+against the tracked inputs.
+
+**Proceed with private M1.T3 preflight.** The owner should verify access and
+terms, freeze complete model snapshots and notices, then prepare the pinned
+per-platform vLLM CPU serving configuration and offline fallback. Refresh
+credit, region/family quota, actual capacity and total cost before requesting
+authorization to allocate the VM. The [M1.T3 checklist](m1t3-deployment-checklist.md)
+retains the four runtime gates. The real dataset and detector can be accepted
+independently of the five fixture-based feasibility questions.
+
+**Research and release gates remain open.** M2 needs a reviewed real split,
+release and rights-reviewed recovery. M3 requires frozen real detector evidence.
+M4 needs an approved corpus, real retrieval and tools against the pinned
+services, dashboard integration and its module regression gate. Uploads stage
+requests. The agent screen displays fixture evidence. The private browser token
+is recoverable from JavaScript. Public hosting requires a separate Architecture
+decision for authentication and static serving.
+
+The 30 November project and report target is at high risk. Five calendar days
+separate this audit date from the deadline. Reforecast using measured release,
+model and study progress while retaining all research conditions.
+
+## Historical readiness check — 22 November 2026
+
+The sections below record the state of the earlier checkout. Use the dated
+25 November assessment above for the current handoff.
 
 Starting commit: `d2b99a7282264aaa9d25ff46ec9408a9319a6ec7`.
 No Azure resource, model service, cloud account, or paid feature was changed.

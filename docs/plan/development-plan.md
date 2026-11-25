@@ -12,12 +12,10 @@ deployment blockers. The [task register](../agent/TASK_LOG.md) and
 [M4 Azure readiness report](../operations/m4-azure-readiness.md) preserve the
 underlying evidence.
 
-As of 22 November, M4.T1–T4 are locally code-complete. The readiness check
-resolved the Docker build block for ARM64 and AMD64 and passed a private
-PostgreSQL/API/MCP Compose smoke. It does **not** close M4: hosted CI is red,
-the React bearer token is unsuitable for public production, the frontend lacks
-a Compose/static serving boundary, and M1.T3/live data/model gates remain.
-Follow [the M4 Azure readiness report](../operations/m4-azure-readiness.md).
+The [25 November audit](../operations/m4-azure-readiness.md) records the
+current checkout and software checks. The 22 November image and service smoke
+remains historical evidence. The private M1.T3 preflight can proceed while
+real dataset release and detector acceptance are outstanding.
 
 Complete the project and report by **30 November 2026**, then rehearse in December for the approximate second-week defense. An earlier official submission date takes precedence. The November 13 forecast of 152–196 focused hours covered all 22 tasks across six modules. The earlier module windows have been superseded. The task sizes below are original estimates, and the November 28–29 report dates in M6 are internal targets. Use measured throughput and remaining work to revise the forecast at each handoff. The deadline is at risk if the real-model checks need hardware or configuration changes.
 
@@ -71,7 +69,7 @@ M1.T3 establishes feasibility for the later M4 integration and M5 research. Keep
 
 ## Module 2 — Dataset Ingestion and Validation
 
-Original estimate 24–30 hours. M2.T1 is the next active priority. The required foundation is the completed M1.T1/T2 package, storage/configuration contracts and verified persistence. The core pipeline runs locally without model inference. Check whether an archive, extracted files, notices or a local inventory already exist before acquiring a source copy or writing an adapter. Follow the [dataset specification](../research/dataset-specification.md).
+Original estimate 24–30 hours. M2.T1 inventory was verified on 18 November. The open release work begins at M2.T3. The required foundation is the completed M1.T1/T2 package, storage/configuration contracts and verified persistence. The core pipeline runs locally without model inference. Check whether an archive, extracted files, notices or a local inventory already exist before acquiring a source copy or writing an adapter. Follow the [dataset specification](../research/dataset-specification.md).
 
 | Task | Work and deliverable | Done when |
 |---|---|---|

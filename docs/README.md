@@ -1,7 +1,7 @@
 # VisionQ thesis project documentation
 
-Last updated: **22 November 2026**. M1.T1 is complete under its recorded scope;
-M1.T2 passed all eight checks at `81f563a`. M1.T3 is deferred and the M1
+Last updated: **25 November 2026**. M1.T1 is complete under its recorded scope;
+M1.T2 passed all eight checks at `81f563a`. M1.T3 preflight is next and the M1
 integration gate remains open. M4.T1 passed its local synthetic-development
 gate at `fc60a381`; M4.T2 passed fixture-backed retrieval, M4.T3 passed the
 authenticated five-tool MCP service, and M4.T4 passed the React/FastAPI local
@@ -76,4 +76,8 @@ The detector predicts **known defect classes and bounding boxes**. The agent exp
 
 The designated chat recorded in WORKFLOW acts as the Architecture agent. The user opens **one chat per module** and implements the work themselves. Codex explains each file section and its purpose, gives its exact placement, and reviews the user's test evidence. One task is active at a time. The [development plan](plan/development-plan.md) specifies when to return to the parked M1 and M4 chats; neither module closes before its integration checks pass.
 
-Read the [workflow](agent/WORKFLOW.md) and [project state](agent/PROJECT_STATE.md), then open the M2 chat for **M2.T1**. Start with the existing local NEU-DET copy; provenance, observed counts, annotations and any supplied split still need auditing. Build the dataset, YOLO11n detector, analytics API and dashboard locally. Resume M1.T3 after M4.T1/T4 and before live retrieval, MCP integration or the LLM study. Clearly label any development fixture; it is not research evidence.
+Return to the M1 chat for the private M1.T3 preflight. Follow the
+[deployment checklist](operations/m1t3-deployment-checklist.md) and the
+[current readiness record](operations/m4-azure-readiness.md). The outstanding
+M2 release and M3 real-data work can proceed independently. Live M4 acceptance
+requires the real model services and the M4 module gate.

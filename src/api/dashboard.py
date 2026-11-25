@@ -8,8 +8,8 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, Response
-from PIL import Image, UnidentifiedImageError
+from fastapi.responses import Response
+from PIL import Image
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
@@ -63,6 +63,31 @@ def page(items: list, limit: int, offset: int):
     }, visible
 
 
+# Each count has its own dataset scope. Joining items, batches and issues
+# before counting would multiply their rows on real releases.
+DATASET_SELECT = """
+SELECT CAST(dv.id AS text) AS id, dv.dataset_name,
+       dv.version, dv.evidence_kind,
+       dv.release_manifest_sha256, dv.created_at,
+       (SELECT count(*) FROM dataset_items
+        WHERE dataset_version_id = dv.id) AS asset_count,
+       (SELECT count(*) FROM batches
+        WHERE dataset_version_id = dv.id) AS batch_count,
+       (SELECT status FROM ingestion_runs
+        WHERE dataset_version_id = dv.id) AS
+           latest_ingestion_status,
+       (SELECT count(*) FROM quality_issues
+        WHERE dataset_version_id = dv.id
+          AND severity = 'error') AS
+           error_quality_issue_count,
+       (SELECT count(*) FROM quality_issues
+        WHERE dataset_version_id = dv.id
+          AND severity = 'warning') AS
+           warning_quality_issue_count
+FROM dataset_versions AS dv
+"""
+
+
 @router.get(
     "/datasets",
     dependencies=[Depends(require_token)],
@@ -80,37 +105,15 @@ def list_datasets(
     with engine.connect() as connection:
         rows = (
             connection.execute(
-                text("""
-                    SELECT
-                        CAST(dv.id AS text) AS id,
-                        dv.dataset_name, dv.version, dv.evidence_kind,
-                        dv.release_manifest_sha256, dv.created_at,
-                        count(DISTINCT di.asset_id) AS asset_count,
-                        count(DISTINCT b.id) AS batch_count,
-                        max(irun.status) FILTER (
-                            WHERE irun.id IS NOT NULL
-                        ) AS latest_ingestion_status,
-                        count(DISTINCT q.id) FILTER (
-                            WHERE q.severity = 'error'
-                        ) AS error_quality_issue_count,
-                        count(DISTINCT q.id) FILTER (
-                            WHERE q.severity = 'warning'
-                        ) AS warning_quality_issue_count
-                    FROM dataset_versions AS dv
-                    LEFT JOIN dataset_items AS di
-                      ON di.dataset_version_id = dv.id
-                    LEFT JOIN batches AS b
-                      ON b.dataset_version_id = dv.id
-                    LEFT JOIN ingestion_runs AS irun
-                      ON irun.dataset_version_id = dv.id
-                    LEFT JOIN quality_issues AS q
-                      ON q.dataset_version_id = dv.id
+                text(
+                    DATASET_SELECT
+                    + """
                     WHERE (CAST(:evidence_kind AS text) IS NULL
                        OR dv.evidence_kind = CAST(:evidence_kind AS text))
-                    GROUP BY dv.id
                     ORDER BY dv.created_at DESC, dv.id DESC
                     LIMIT :fetch_limit OFFSET :offset
-                """),
+                """
+                ),
                 {
                     "evidence_kind": evidence_kind,
                     "fetch_limit": limit + 1,
@@ -133,28 +136,12 @@ def dataset_summary(dataset_id: UUID, engine: Engine = Depends(engine_for)):
     with engine.connect() as connection:
         dataset = (
             connection.execute(
-                text("""
-                    SELECT CAST(dv.id AS text) AS id, dv.dataset_name,
-                           dv.version, dv.evidence_kind,
-                           dv.release_manifest_sha256, dv.created_at,
-                           (SELECT count(*) FROM dataset_items
-                            WHERE dataset_version_id = dv.id) AS asset_count,
-                           (SELECT count(*) FROM batches
-                            WHERE dataset_version_id = dv.id) AS batch_count,
-                           (SELECT status FROM ingestion_runs
-                            WHERE dataset_version_id = dv.id) AS
-                               latest_ingestion_status,
-                           (SELECT count(*) FROM quality_issues
-                            WHERE dataset_version_id = dv.id
-                              AND severity = 'error') AS
-                               error_quality_issue_count,
-                           (SELECT count(*) FROM quality_issues
-                            WHERE dataset_version_id = dv.id
-                              AND severity = 'warning') AS
-                               warning_quality_issue_count
-                    FROM dataset_versions AS dv
+                text(
+                    DATASET_SELECT
+                    + """
                     WHERE dv.id = CAST(:id AS uuid)
-                """),
+                """
+                ),
                 {"id": str(dataset_id)},
             )
             .mappings()
@@ -537,7 +524,7 @@ def artifact(checksum: str, request: Request, root: Path = Depends(artifact_root
             converted = io.BytesIO()
             image.convert("RGB").save(converted, format="PNG")
         return Response(converted.getvalue(), media_type="image/png")
-    except UnidentifiedImageError as exc:
+    except (OSError, Image.DecompressionBombError) as exc:
         raise HTTPException(503, "artifact is not a supported image") from exc
 
 
@@ -545,9 +532,12 @@ def upload_path(root: Path, checksum: str) -> Path:
     if root.is_symlink():
         raise HTTPException(503, "upload storage cannot be a symlink")
     base = root / "uploads" / "objects"
-    if base.is_symlink():
+    if base.parent.is_symlink() or base.is_symlink():
         raise HTTPException(503, "upload storage cannot be a symlink")
-    base.mkdir(parents=True, exist_ok=True)
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise HTTPException(503, "upload storage is unavailable") from exc
     destination = base / checksum
     if destination.is_symlink():
         raise HTTPException(503, "upload artifact cannot be a symlink")
@@ -560,7 +550,7 @@ def upload_path(root: Path, checksum: str) -> Path:
     status_code=201,
     response_model=UploadRequestResponse,
 )
-async def upload_image(
+def upload_image(
     request: Request,
     file: UploadFile = File(...),
     dataset_version_id: str | None = Form(None),
@@ -570,19 +560,19 @@ async def upload_image(
     original = Path(file.filename or "").name
     if not original or len(original) > 255 or file.content_type not in ALLOWED_MEDIA:
         raise HTTPException(422, "only PNG and JPEG images are accepted")
-    content = await file.read(UPLOAD_LIMIT + 1)
+    content = file.file.read(UPLOAD_LIMIT + 1)
     if not content or len(content) > UPLOAD_LIMIT:
         raise HTTPException(413, "image must not exceed 20 MB")
     try:
         with Image.open(io.BytesIO(content)) as decoded:
-            decoded.load()
             expected = {"image/png": "PNG", "image/jpeg": "JPEG"}[file.content_type]
             if decoded.format != expected:
                 raise HTTPException(422, "image encoding differs from file type")
             width, height = decoded.size
             if width * height > PIXEL_LIMIT:
                 raise HTTPException(422, "image exceeds the 10 megapixel limit")
-    except UnidentifiedImageError as exc:
+            decoded.load()
+    except (OSError, Image.DecompressionBombError) as exc:
         raise HTTPException(422, "image cannot be decoded") from exc
     try:
         dataset = str(UUID(dataset_version_id)) if dataset_version_id else None
@@ -789,14 +779,14 @@ def upload_image_bytes(upload_id: UUID, request: Request):
         )
     if row is None:
         raise HTTPException(404, "unknown upload request")
-    path = root / "uploads/objects" / row["content_sha256"]
+    path = upload_path(root, row["content_sha256"])
     try:
         data = path.read_bytes()
     except OSError as exc:
         raise HTTPException(503, "upload artifact is missing") from exc
     if len(data) != row["byte_count"] or sha256(data) != row["content_sha256"]:
         raise HTTPException(503, "upload artifact checksum mismatch")
-    return FileResponse(path, media_type=row["media_type"])
+    return Response(data, media_type=row["media_type"])
 
 
 @router.get("/agent-fixture", dependencies=[Depends(require_token)])

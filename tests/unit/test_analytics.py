@@ -175,3 +175,11 @@ def test_comparison_rejects_changed_dataset_class_or_model_contract():
     for right in mismatches:
         with pytest.raises(AnalyticsCompatibilityError, match="incompatible"):
             compare_payloads(left, right, list(values))
+
+
+def test_paired_context_requires_an_explicit_comparison_scope():
+    from analytics.service import CONTEXT_FORMAT
+
+    context = {"format": CONTEXT_FORMAT, "scope_set": []}
+    with pytest.raises(AnalyticsCompatibilityError, match="context"):
+        compare_payloads(context, context)

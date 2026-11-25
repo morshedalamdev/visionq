@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.engine import Engine
 
 from api.analytics import engine_for, require_token
-from retrieval.embeddings import EmbeddingBackend
+from retrieval.embeddings import EmbeddingBackend, EmbeddingServiceError
 from retrieval.service import (
     CorpusConflict,
     EmbeddingCompatibilityError,
@@ -58,6 +58,8 @@ def search_documents(
             body.query,
             body.top_k,
         )
+    except EmbeddingServiceError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except CorpusConflict as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except EmbeddingCompatibilityError as exc:

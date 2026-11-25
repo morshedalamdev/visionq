@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { api } from "../api/client";
 import type {
   Comparison,
   ContextSnapshot,
-  Dataset,
   InferenceRun,
 } from "../api/types";
 import { Badge, ErrorState, LoadingState } from "../components/AsyncState";
 import { MetricGrid } from "../components/MetricGrid";
+
+import { usePage } from "../api/usePage";
+import { PageControls } from "../components/PageControls";
 
 const metricNames = [
   "batch_image_count",
@@ -25,42 +27,64 @@ const metricNames = [
 ];
 
 export function Analytics() {
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [runs, setRuns] = useState<InferenceRun[]>([]);
-  const [datasetId, setDatasetId] = useState("");
-  const [batchId, setBatchId] = useState("");
-  const [left, setLeft] = useState("");
-  const [right, setRight] = useState("");
+  const datasets = usePage(api.datasets);
+  const [choice, setChoice] = useState("");
+  const datasetId = datasets.items.find(item => item.id === choice)?.id ?? datasets.items[0]?.id;
+  return <section>
+      <header className="page-header"><div><span className="eyebrow">Canonical evidence</span><h1>Analytics</h1><p>Metrics come from an API-owned immutable snapshot.</p></div></header>
+      <label>Dataset<select value={datasetId ?? ""} onChange={event => setChoice(event.target.value)}>
+        {datasets.items.map(item => <option key={item.id} value={item.id}>{item.dataset_name} v{item.version}</option>)}
+      </select></label>
+      <PageControls page={datasets} label="datasets" />
+      {datasetId && <RunScopes key={datasetId} datasetId={datasetId} />}
+    </section>;
+}
+
+function RunScopes({ datasetId }: { datasetId: string }) {
+  const runs = usePage(useCallback((offset: number) =>
+    api.runs(datasetId, undefined, undefined, offset), [datasetId]));
+  const [choice, setChoice] = useState("");
+  const primary = runs.items.find(run => run.id === choice) ?? runs.items[0];
+  return <>
+    <label>Primary / left run<select value={primary?.id ?? ""} onChange={event => setChoice(event.target.value)}>
+      {runs.items.map(run => <option key={run.id} value={run.id}>{run.id.slice(0, 8)} · {run.status}</option>)}
+    </select></label>
+    <PageControls page={runs} label="primary runs" />
+    {primary && <ComparisonScope key={primary.id} datasetId={datasetId} left={primary} />}
+  </>;
+}
+
+type Scope = { datasetId: string; left: InferenceRun };
+
+function ComparisonScope(scope: Scope) {
+  const { datasetId, left } = scope;
+  const runs = usePage(useCallback((offset: number) =>
+    api.runs(datasetId, undefined, undefined, offset), [datasetId]));
+  const [right, setRight] = useState<InferenceRun>();
+  return <>
+    <label>Optional right run<select value={right?.id ?? ""} onChange={event => setRight(runs.items.find(item => item.id === event.target.value))}>
+      <option value="">No comparison</option>
+      {right && !runs.items.some(run => run.id === right.id) && <option value={right.id}>{right.id}</option>}
+      {runs.items.filter(run => run.id !== left.id).map(run => <option key={run.id} value={run.id}>{run.id.slice(0, 8)} · {run.status}</option>)}
+    </select></label>
+    <PageControls page={runs} label="comparison runs" />
+    <Snapshot key={right?.id ?? "primary"} {...scope} right={right} />
+  </>;
+}
+
+function Snapshot({ datasetId, left, right }: Scope & { right?: InferenceRun }) {
   const [snapshot, setSnapshot] = useState<ContextSnapshot | null>(null);
   const [comparisons, setComparisons] = useState<Comparison[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    api.datasets().then(({ items }) => {
-      setDatasets(items);
-      if (items[0]) setDatasetId(items[0].id);
-    }).catch(setError);
-  }, []);
-
-  useEffect(() => {
-    if (!datasetId) return;
-    api.runs(datasetId).then(({ items }) => {
-      setRuns(items);
-      const first = items[0];
-      if (first) {
-        setBatchId(first.batch_id);
-        setLeft(first.id);
-        setRight(items[1]?.id ?? "");
-      }
-    }).catch(setError);
-  }, [datasetId]);
-
   const capture = () => {
-    const ids = right ? [left, right] : [left];
-    if (!left || !batchId || !datasetId) return;
+    const scopes = right ? [left, right] : [left];
+    setError(null);
+    setComparisons([]);
+    setSnapshot(null);
     setLoading(true);
-    api.snapshot(datasetId, batchId, ids.filter(Boolean), metricNames)
+    api.snapshot(datasetId, scopes, metricNames)
       .then(async (created) => {
         setSnapshot(created);
         if (right) {
@@ -80,14 +104,8 @@ export function Analytics() {
   const scoped = snapshot?.payload.scope_set ?? [];
 
   return (
-    <section>
-      <header className="page-header"><div><span className="eyebrow">Canonical evidence</span><h1>Analytics</h1><p>Metrics come from an API-owned immutable snapshot. Missing values remain unavailable.</p></div></header>
-      <div className="panel filters">
-        <label>Dataset<select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}>{datasets.map((item) => <option key={item.id} value={item.id}>{item.dataset_name} v{item.version}</option>)}</select></label>
-        <label>Primary / left run<select value={left} onChange={(event) => { setLeft(event.target.value); setBatchId(runs.find((run) => run.id === event.target.value)?.batch_id ?? ""); }}>{runs.map((run) => <option key={run.id} value={run.id}>{run.id.slice(0, 8)} · {run.status}</option>)}</select></label>
-        <label>Optional right run<select value={right} onChange={(event) => setRight(event.target.value)}><option value="">No comparison</option>{runs.filter((run) => run.batch_id === batchId && run.id !== left).map((run) => <option key={run.id} value={run.id}>{run.id.slice(0, 8)} · {run.status}</option>)}</select></label>
-        <button onClick={capture}>Capture snapshot</button>
-      </div>
+    <>
+      <button onClick={capture} disabled={loading}>Capture snapshot</button>
       {loading ? <LoadingState label="Capturing repeatable-read evidence" /> : null}
       {error ? <ErrorState error={error} /> : null}
       {snapshot ? (
@@ -127,6 +145,6 @@ export function Analytics() {
           </div>
         </>
       ) : null}
-    </section>
+    </>
   );
 }

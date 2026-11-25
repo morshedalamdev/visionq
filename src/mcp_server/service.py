@@ -23,7 +23,7 @@ from mcp_server.schemas import (
     RunProvenanceResponse,
     SearchDocumentsResponse,
 )
-from retrieval.embeddings import EmbeddingBackend
+from retrieval.embeddings import EmbeddingBackend, EmbeddingServiceError
 from retrieval.service import (
     CorpusConflict,
     EmbeddingCompatibilityError,
@@ -301,6 +301,8 @@ class MCPToolService:
                 read_only=True,
                 statement_timeout_ms=self.context.query_timeout_ms,
             )
+        except EmbeddingServiceError as exc:
+            raise MCPToolError(str(exc)) from exc
         except (CorpusConflict, EmbeddingCompatibilityError, ValueError) as exc:
             raise MCPToolError(str(exc)) from exc
         except SQLAlchemyError as exc:

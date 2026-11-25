@@ -68,3 +68,31 @@ def test_retrieval_request_validation_limits_top_k_and_query(monkeypatch):
     assert blank.status_code == 422
     assert too_many.status_code == 422
     assert valid.status_code == 200
+
+
+def test_configured_live_profile_surfaces_an_outage(monkeypatch):
+    import httpx
+
+    def unavailable(*args, **kwargs):
+        raise httpx.ConnectError("private endpoint unavailable")
+
+    monkeypatch.setattr("retrieval.embeddings.httpx.post", unavailable)
+    monkeypatch.setenv("VISIONQ_API_EMBEDDING_BACKEND", "openai-compatible")
+    for key, value in {
+        "BASE_URL": "http://local.invalid/v1",
+        "MODEL": "fixture",
+        "REVISION": "fixture-revision",
+        "DIMENSIONS": "2",
+    }.items():
+        monkeypatch.setenv(f"VLLM_EMBEDDING_{key}", value)
+
+    with TestClient(
+        create_app(engine=object(), analytics_api_token="secret")
+    ) as client:
+        response = client.post(
+            "/retrieval/search",
+            json=request_body(),
+            headers={"Authorization": "Bearer secret"},
+        )
+        assert response.status_code == 503
+        assert response.json()["detail"] == "embedding service request failed"

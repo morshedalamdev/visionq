@@ -403,8 +403,9 @@ def _quality_evidence(
                 FROM quality_issues
                 WHERE dataset_version_id = CAST(:dataset_version_id AS uuid)
                 ORDER BY rule_id, severity, id
+                LIMIT :fetch_limit
             """),
-            scope.as_dict(),
+            {**scope.as_dict(), "fetch_limit": MAX_QUALITY_FINDINGS + 1},
         )
         .mappings()
         .all()
@@ -755,6 +756,10 @@ def compare_payloads(
     metric_names: list[str] | None = None,
 ) -> dict[str, Any]:
     selected = normalize_metric_names(metric_names)
+    if CONTEXT_FORMAT in (left.get("format"), right.get("format")):
+        raise AnalyticsCompatibilityError(
+            "compare the left and right scopes within the context snapshot"
+        )
     compatibility_fields = (
         ("dataset", "evidence_kind"),
         ("dataset", "release_manifest_sha256"),

@@ -134,6 +134,7 @@ def selected_model(selection, selection_sha, real_release_approved=False):
             "tool_version": INFERENCE_VERSION,
             "checkpoint": checkpoint["name"],
             "predictor": "ultralytics",
+            "preprocessing": "grayscale-rgb",
             "settings": saved["operating_evaluation"]["settings"],
             "confidence_threshold": saved["operating_evaluation"]["selected"][
                 "threshold"
@@ -416,7 +417,11 @@ def validate_predictions(raw, width, height, class_count, threshold):
 
 
 class UltralyticsPredictor:
-    def __init__(self, checkpoint: Path):
+    def __init__(self, checkpoint: Path, preprocessing: str = "grayscale-rgb"):
+        if preprocessing not in ("grayscale-rgb", "rgb"):
+            raise ValueError("unknown detector preprocessing")
+        self.preprocessing = preprocessing
+
         from ultralytics import YOLO
 
         self._checkpoint_dir = tempfile.TemporaryDirectory(prefix="visionq-inference-")
@@ -427,7 +432,10 @@ class UltralyticsPredictor:
     def __call__(self, image: Path, settings, device):
         with Image.open(image) as source:
             source.load()
-            decoded = source.convert("RGB")
+            if self.preprocessing == "grayscale-rgb":
+                decoded = source.convert("L").convert("RGB")
+            else:
+                decoded = source.convert("RGB")
         boxes = self.model.predict(
             decoded,
             device=device,
@@ -770,7 +778,9 @@ def run_inference(
                     size,
                 )
                 predictor = UltralyticsPredictor(
-                    artifact_root / "catalog/objects" / model["checkpoint_sha256"]
+                    artifact_root / "catalog/objects" / model["checkpoint_sha256"],
+                    # Older registered models retain their original RGB input contract.
+                    model["inference_config"].get("preprocessing", "rgb"),
                 )
             for item in items:
                 process_item(

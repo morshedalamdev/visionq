@@ -69,9 +69,11 @@ the snapshot's pinned index.
 - `search_documents` accepts only the exact pinned corpus/index pair and
   rejects top-k above four at schema validation.
 - Database transactions are read-only, have statement timeouts and the whole
-  tool operation is bounded by a separate tool timeout.
+  caller receives a separate tool deadline. Eight synchronous operations can run per MCP process. A timed-out operation holds its slot until the underlying call returns. Saturation produces an explicit busy error.
 - Retrieved text remains untrusted source data, never an instruction channel.
 - No shell, filesystem, arbitrary URL or SQL execution tools are registered.
+
+GET `/health` checks process liveness. GET `/ready` reads the snapshot schema through the configured database role. Live embedding availability is checked by a retrieval request.
 
 ## Checks
 

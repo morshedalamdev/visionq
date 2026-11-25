@@ -32,8 +32,8 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a private database password}
       ARTIFACT_ROOT: /artifacts
-      VLLM_GENERATION_BASE_URL: ${VLLM_GENERATION_BASE_URL:?set generation URL}
-      VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:?set embedding URL}
+      VLLM_GENERATION_BASE_URL: ${VLLM_GENERATION_BASE_URL:-}
+      VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:-}
     volumes:
       - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
     networks:
@@ -61,6 +61,12 @@ services:
       VISIONQ_UI_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
       VLLM_GENERATION_BASE_URL: ${VLLM_GENERATION_BASE_URL:-}
       VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:-}
+      VISIONQ_API_EMBEDDING_BACKEND: ${VISIONQ_API_EMBEDDING_BACKEND:-}
+      VLLM_EMBEDDING_MODEL: ${VLLM_EMBEDDING_MODEL:-}
+      VLLM_EMBEDDING_REVISION: ${VLLM_EMBEDDING_REVISION:-}
+      VLLM_EMBEDDING_DIMENSIONS: ${VLLM_EMBEDDING_DIMENSIONS:-}
+      VLLM_EMBEDDING_QUERY_PREFIX: ${VLLM_EMBEDDING_QUERY_PREFIX:-}
+      VLLM_EMBEDDING_DOCUMENT_PREFIX: ${VLLM_EMBEDDING_DOCUMENT_PREFIX:-}
     volumes:
       - ${ARTIFACT_DIR:?set artifact directory}:/artifacts
     ports:
@@ -70,7 +76,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
       interval: 10s
       timeout: 5s
       retries: 6
@@ -90,7 +96,7 @@ services:
       VISIONQ_MCP_TOKEN: ${VISIONQ_MCP_TOKEN:?set the MCP bearer token}
       VISIONQ_MCP_HOST: 0.0.0.0
       VISIONQ_MCP_PORT: 8001
-      VISIONQ_MCP_EMBEDDING_BACKEND: ${VISIONQ_MCP_EMBEDDING_BACKEND:-deterministic}
+      VISIONQ_MCP_EMBEDDING_BACKEND: ${VISIONQ_MCP_EMBEDDING_BACKEND:?choose an explicit MCP embedding backend}
       VISIONQ_MCP_EMBEDDING_DIMENSIONS: ${VISIONQ_MCP_EMBEDDING_DIMENSIONS:-8}
       VLLM_EMBEDDING_BASE_URL: ${VLLM_EMBEDDING_BASE_URL:-}
       VLLM_EMBEDDING_MODEL: ${VLLM_EMBEDDING_MODEL:-}
@@ -103,7 +109,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=3)"
       interval: 10s
       timeout: 5s
       retries: 6

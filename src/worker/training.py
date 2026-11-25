@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PIL import Image, ImageChops
 
+from worker.fixture import publish as write_new
 from worker.inventory import canonical_json
 from worker.preparation import SPLITS, verify_export
 from worker.validation import CLASSES, sha256
@@ -63,17 +64,6 @@ def file_sha256(path):
         for block in iter(lambda: handle.read(1 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def write_new(path, data):
-    """Atomic create-only write: hard link fails if the target exists."""
-    path = Path(path)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_bytes(data)
-    try:
-        os.link(temporary, path)
-    finally:
-        temporary.unlink()
 
 
 def _git(*args):

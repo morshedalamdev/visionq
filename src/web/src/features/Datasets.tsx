@@ -1,29 +1,27 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Dataset, DatasetSummary } from "../api/types";
+import type { DatasetSummary } from "../api/types";
 import { Badge, EmptyState, ErrorState, LoadingState } from "../components/AsyncState";
 
+import { usePage } from "../api/usePage";
+import { PageControls } from "../components/PageControls";
+
 export function Datasets() {
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const datasets = usePage(api.datasets);
+  const [selection, setSelection] = useState("");
+  const id = datasets.items.find(item => item.id === selection)?.id ?? datasets.items[0]?.id;
   const [selected, setSelected] = useState<DatasetSummary | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = () => {
-    setLoading(true);
+  const [error, setError] = useState<unknown>();
+  useEffect(() => {
+    let active = true;
+    setSelected(null);
     setError(null);
-    api.datasets()
-      .then(async (response) => {
-        setDatasets(response.items);
-        if (response.items[0]) {
-          setSelected(await api.dataset(response.items[0].id));
-        }
-      })
-      .catch(setError)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
+    if (id) api.dataset(id).then(
+      data => { if (active) setSelected(data); },
+      reason => { if (active) setError(reason); },
+    );
+    return () => { active = false; };
+  }, [id]);
 
   return (
     <section>
@@ -34,21 +32,22 @@ export function Datasets() {
           <p>Persisted release identity, split membership and quality evidence.</p>
         </div>
       </header>
-      {loading ? <LoadingState /> : null}
-      {error ? <ErrorState error={error} retry={load} /> : null}
-      {!loading && !error && !datasets.length ? (
+      <PageControls page={datasets} label="datasets" />
+      {id && !error && selected?.dataset.id !== id && <LoadingState />}
+      {error ? <ErrorState error={error} retry={datasets.retry} /> : null}
+      {!datasets.loading && !datasets.error && !datasets.items.length ? (
         <EmptyState>No dataset versions are persisted yet.</EmptyState>
       ) : null}
       <div className="two-column">
         <div className="panel">
           <h2>Dataset versions</h2>
           <div className="select-list">
-            {datasets.map((dataset) => (
+            {datasets.items.map((dataset) => (
               <button
                 key={dataset.id}
                 className={selected?.dataset.id === dataset.id ? "selected" : ""}
                 onClick={() =>
-                  api.dataset(dataset.id).then(setSelected).catch(setError)
+                  setSelection(dataset.id)
                 }
               >
                 <span>
@@ -60,7 +59,7 @@ export function Datasets() {
             ))}
           </div>
         </div>
-        {selected ? (
+        {selected && selected.dataset.id === id ? (
           <div className="panel">
             <div className="panel-heading">
               <div>

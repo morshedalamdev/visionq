@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { Batch, Dataset, UploadRequest } from "../api/types";
+import type { UploadRequest } from "../api/types";
 import { Badge, ErrorState } from "../components/AsyncState";
+
+import { usePage } from "../api/usePage";
+import { PageControls } from "../components/PageControls";
 
 const maxBytes = 20_000_000;
 
@@ -16,31 +19,17 @@ export function validateImageFile(file: File): string | null {
 }
 
 export function Upload() {
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [batches, setBatches] = useState<Batch[]>([]);
   const [datasetId, setDatasetId] = useState("");
   const [batchId, setBatchId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
-  const [uploads, setUploads] = useState<UploadRequest[]>([]);
+  const datasets = usePage(api.datasets);
+  const batches = usePage(useCallback((offset: number) => api.batches(datasetId, offset), [datasetId]), !!datasetId);
+  const uploads = usePage(api.uploads);
   const [latest, setLatest] = useState<UploadRequest | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [fileError, setFileError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  const reload = () => {
-    api.uploads().then(({ items }) => setUploads(items)).catch(setError);
-  };
-
-  useEffect(() => {
-    Promise.all([api.datasets(), api.batches(), api.uploads()])
-      .then(([datasetPage, batchPage, uploadPage]) => {
-        setDatasets(datasetPage.items);
-        setBatches(batchPage.items);
-        setUploads(uploadPage.items);
-      })
-      .catch(setError);
-  }, []);
 
   useEffect(() => {
     if (!file) {
@@ -60,13 +49,13 @@ export function Upload() {
   };
 
   const submit = () => {
-    if (!file) return;
+    if (!file || (datasetId && !batchId) || submitting) return;
     setSubmitting(true);
     setError(null);
     api.upload(file, datasetId || undefined, batchId || undefined)
       .then((created) => {
         setLatest(created);
-        reload();
+        uploads.first();
       })
       .catch(setError)
       .finally(() => setSubmitting(false));
@@ -81,15 +70,20 @@ export function Upload() {
           <label className="file-drop">Select PNG or JPEG<input type="file" accept="image/png,image/jpeg" onChange={(event) => selectFile(event.target.files?.[0] ?? null)} /></label>
           {fileError ? <p className="field-error" role="alert">{fileError}</p> : null}
           {preview ? <img className="upload-preview" src={preview} alt="Selected upload preview" /> : null}
-          <label>Requested dataset<select value={datasetId} onChange={(event) => { setDatasetId(event.target.value); setBatchId(""); }}><option value="">No scope selected</option>{datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.dataset_name} v{dataset.version}</option>)}</select></label>
-          <label>Requested batch<select value={batchId} disabled={!datasetId} onChange={(event) => setBatchId(event.target.value)}><option value="">No batch selected</option>{batches.filter((batch) => batch.dataset_version_id === datasetId).map((batch) => <option key={batch.id} value={batch.id}>{batch.split ?? batch.kind} · {batch.member_count}</option>)}</select></label>
-          <button disabled={!file || submitting} onClick={submit}>{submitting ? "Uploading…" : "Create upload request"}</button>
+          <label>Requested dataset<select value={datasetId} onChange={(event) => { setDatasetId(event.target.value); setBatchId(""); }}><option value="">No scope selected</option>{datasetId && !datasets.items.some(item => item.id === datasetId) && <option value={datasetId}>{datasetId}</option>}{datasets.items.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.dataset_name} v{dataset.version}</option>)}</select></label>
+          <PageControls page={datasets} label="datasets" />
+          <label>Requested batch<select value={batchId} disabled={!datasetId} onChange={(event) => setBatchId(event.target.value)}><option value="">No batch selected</option>{batchId && !batches.items.some(item => item.id === batchId) && <option value={batchId}>{batchId}</option>}{batches.items.map((batch) => <option key={batch.id} value={batch.id}>{batch.split ?? batch.kind} · {batch.member_count}</option>)}</select></label>
+          {datasetId && <PageControls page={batches} label="batches" />}
+          {datasetId && !batchId && <p>Select a batch to scope this request.</p>}
+          <button disabled={!file || (!!datasetId && !batchId) || submitting} onClick={submit}>{submitting ? "Uploading…" : "Create upload request"}</button>
           {latest ? <div className="state-card"><strong>Request persisted</strong><span>{latest.id}</span><Badge value={latest.inference_state} /></div> : null}
         </div>
         <div className="panel">
           <h2>Upload requests</h2>
+          <PageControls page={uploads} label="uploads" />
+          {!uploads.loading && !uploads.error && !uploads.items.length && <p>No upload requests yet.</p>}
           <div className="request-list">
-            {uploads.map((upload) => (
+            {uploads.items.map((upload) => (
               <article key={upload.id}>
                 <div><strong>{upload.original_filename}</strong><span>{upload.width}×{upload.height} · {(upload.byte_count / 1024).toFixed(1)} KiB</span></div>
                 <Badge value={upload.status} /><Badge value={upload.inference_state} />

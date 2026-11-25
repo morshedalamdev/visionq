@@ -11,7 +11,7 @@ from sqlalchemy.engine import make_url
 from retrieval.embeddings import (
     DeterministicEmbeddingBackend,
     EmbeddingBackend,
-    OpenAICompatibleEmbeddingBackend,
+    live_backend_from_environment,
 )
 
 
@@ -75,7 +75,7 @@ def database_from_environment():
 
 
 def embedding_from_environment() -> EmbeddingBackend:
-    backend = os.environ.get("VISIONQ_MCP_EMBEDDING_BACKEND", "deterministic")
+    backend = os.environ.get("VISIONQ_MCP_EMBEDDING_BACKEND")
     if backend == "deterministic":
         dimensions = integer_setting("VISIONQ_MCP_EMBEDDING_DIMENSIONS", 8, 1, 4096)
         return DeterministicEmbeddingBackend(dimensions)
@@ -83,21 +83,4 @@ def embedding_from_environment() -> EmbeddingBackend:
         raise ValueError(
             "VISIONQ_MCP_EMBEDDING_BACKEND must be deterministic or openai-compatible"
         )
-    required = (
-        "VLLM_EMBEDDING_BASE_URL",
-        "VLLM_EMBEDDING_MODEL",
-        "VLLM_EMBEDDING_REVISION",
-        "VLLM_EMBEDDING_DIMENSIONS",
-    )
-    missing = [name for name in required if not os.environ.get(name)]
-    if missing:
-        raise ValueError(f"missing embedding configuration: {', '.join(missing)}")
-    dimensions = integer_setting("VLLM_EMBEDDING_DIMENSIONS", 768, 1, 4096)
-    return OpenAICompatibleEmbeddingBackend(
-        os.environ["VLLM_EMBEDDING_BASE_URL"],
-        os.environ["VLLM_EMBEDDING_MODEL"],
-        os.environ["VLLM_EMBEDDING_REVISION"],
-        dimensions,
-        query_prefix=os.environ.get("VLLM_EMBEDDING_QUERY_PREFIX", ""),
-        document_prefix=os.environ.get("VLLM_EMBEDDING_DOCUMENT_PREFIX", ""),
-    )
+    return live_backend_from_environment()

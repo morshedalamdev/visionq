@@ -19,7 +19,7 @@ A corpus manifest uses `visionq-corpus-manifest-v1` and contains:
 Source paths must remain below the explicitly selected corpus root and may not be
 symlinks or absolute/traversal paths. UTF-8 content is required. Sources whose
 paths contain benchmark, gold, grading, held-out, questions or expected-answer
-markers are rejected. Corpus approval is not granted by the implementation;
+markers are rejected. Before approving a production manifest, the reviewer must inspect the actual document content and its provenance against withheld questions, grading rubrics and reference answers. Record the reviewer, decision and exact source hashes. Path screening cannot establish corpus independence. Corpus approval is not granted by the implementation;
 without approved documents, keep the evidence class `development-fixture`.
 
 ## Local indexing lifecycle

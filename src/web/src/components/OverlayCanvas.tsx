@@ -52,6 +52,7 @@ export function OverlayCanvas({
       });
     };
     image.src = source;
+    return () => { image.onload = null; };
   }, [source, width, height, detections]);
 
   return (

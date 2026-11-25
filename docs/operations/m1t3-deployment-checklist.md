@@ -75,6 +75,8 @@ those actions in the M1.T3 chat.
       blocked; real generation and embedding requests both pass.
 - [ ] Run the M1 integration/regression gate before closing M1.
 
+The M1.T3 fixture passage and metric question can run before the real M2 release or M3 detector evaluation.
+
 ## 6. Private app deployment
 
 - [ ] Apply all migrations through `0007_upload_requests`.
@@ -86,7 +88,7 @@ those actions in the M1.T3 chat.
 - [ ] If any public UI is approved, first implement Entra SPA PKCE plus FastAPI
       JWT validation for signature, issuer, audience, expiry, tenant and
       scopes/roles.
-- [ ] Verify `/health` for API and MCP plus Compose health/restart behavior.
+- [ ] Verify API and MCP liveness at `/health`, database-backed application readiness at `/ready`, and recovery after restart. Exercise generation and retrieval separately.
 - [ ] Restrict SSH to the current approved source IP; verify final
       `Stopped (deallocated)` state after use.
 

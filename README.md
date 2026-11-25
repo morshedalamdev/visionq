@@ -1,21 +1,21 @@
 # VisionQ
 
-VisionQ is an industrial visual defect detection research project. The planned
-React dashboard will let users upload an inspection image, see where the detector
-finds suspected defects, and optionally ask questions about the recorded results.
-Public visitors will be able to submit live questions at any time.
+VisionQ is a self-hosted industrial visual defect detection research project.
+The Python worker inventories and validates NEU-DET, prepares reviewed releases,
+and records YOLO11n training, evaluation and inference. FastAPI serves PostgreSQL
+history, overlays and snapshot-based analytics to the React dashboard. Uploads
+stage requests for inspection. Catalog registration, prediction of new uploads
+and a live question-answering agent remain separate work.
 
-NEU-DET is the initial dataset for evaluating the detector. The project will
-also be open source, with instructions for running your own copy using Docker.
+The retrieval and five-tool read-only MCP interfaces have development-fixture
+coverage. Real dataset release, held-out detector evaluation and live vLLM
+acceptance remain open. The next private feasibility step is the M1.T3
+model-access and serving preflight. The dashboard bearer credential is visible
+to the browser. Use the single-operator loopback or SSH-tunnel boundary.
 
-The foundation provides an installable Python CLI. The worker source is in
-`src/worker/`. The dashboard, detector, model services and public deployment
-belong to later implementation stages.
-
-M1.T1 and M1.T2 are complete. Next is **M2.T1: inventory the existing local
-NEU-DET dataset and document its provenance**. The [development plan](docs/plan/development-plan.md)
-keeps M1.T3 pending until the local detector, analytics and dashboard are ready
-for real AI integration. No inference VM has been provisioned.
+See the [current readiness record](docs/operations/m4-azure-readiness.md),
+[deployment checklist](docs/operations/m1t3-deployment-checklist.md) and
+[development plan](docs/plan/development-plan.md).
 
 ## Reproduce the foundation
 

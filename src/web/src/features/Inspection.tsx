@@ -1,69 +1,47 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { ImageResult, RunDetail } from "../api/types";
 import { Badge, ErrorState, LoadingState } from "../components/AsyncState";
 import { OverlayCanvas } from "../components/OverlayCanvas";
 
+import { usePage } from "../api/usePage";
+import { PageControls } from "../components/PageControls";
+
 export function Inspection({ initialRunId = "" }: { initialRunId?: string }) {
   const [runId, setRunId] = useState(initialRunId);
-  const [run, setRun] = useState<RunDetail | null>(null);
-  const [images, setImages] = useState<ImageResult[]>([]);
-  const [selected, setSelected] = useState<ImageResult | null>(null);
-  const [imageUrl, setImageUrl] = useState("");
-  const [error, setError] = useState<unknown>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!initialRunId) return;
-    setRunId(initialRunId);
-  }, [initialRunId]);
-
-  const load = () => {
-    if (!runId.trim()) return;
-    setLoading(true);
-    setError(null);
-    Promise.all([api.run(runId), api.runImages(runId)])
-      .then(([detail, result]) => {
-        setRun(detail);
-        setImages(result.items);
-        setSelected(result.items[0] ?? null);
-      })
-      .catch(setError)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    if (!selected) {
-      setImageUrl("");
-      return;
-    }
-    let active = true;
-    let objectUrl = "";
-    api.artifactUrl(selected.image_url)
-      .then((url) => {
-        if (!active) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        objectUrl = url;
-        setImageUrl(url);
-      })
-      .catch(setError);
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [selected]);
-
+  const [loadedId, setLoadedId] = useState(initialRunId);
   return (
     <section>
       <header className="page-header"><div><span className="eyebrow">Stored predictions</span><h1>Image inspection</h1><p>Original-coordinate persisted boxes are rendered without client-side coordinate conversion.</p></div></header>
       <div className="panel input-row">
         <label>Inference run ID<input value={runId} onChange={(event) => setRunId(event.target.value)} placeholder="Paste a persisted run UUID" /></label>
-        <button onClick={load}>Load run</button>
+        <button onClick={() => setLoadedId(runId.trim())} disabled={!runId.trim()}>Load run</button>
       </div>
-      {loading ? <LoadingState label="Loading persisted run" /> : null}
-      {error ? <ErrorState error={error} retry={load} /> : null}
+      {loadedId && <RunInspection key={loadedId} runId={loadedId} />}
+    </section>
+  );
+}
+
+function RunInspection({ runId }: { runId: string }) {
+  const [revision, setRevision] = useState(0);
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [error, setError] = useState<unknown>();
+  const [assetId, setAssetId] = useState("");
+  const images = usePage(useCallback((offset: number) => api.runImages(runId, offset), [runId]));
+  const selected = images.items.find(image => image.asset_id === assetId) ?? images.items[0];
+  useEffect(() => {
+    let active = true;
+    setError(null);
+    api.run(runId).then(
+      data => { if (active) setRun(data); },
+      reason => { if (active) setError(reason); },
+    );
+    return () => { active = false; };
+  }, [runId, revision]);
+
+  return (<>
+      {!run && !error ? <LoadingState label="Loading persisted run" /> : null}
+      {error ? <ErrorState error={error} retry={() => setRevision(revision + 1)} /> : null}
       {run ? (
         <>
           <div className="panel provenance-strip">
@@ -74,8 +52,9 @@ export function Inspection({ initialRunId = "" }: { initialRunId?: string }) {
           </div>
           <div className="inspection-layout">
             <div className="panel image-strip">
-              {images.map((image) => (
-                <button key={image.asset_id} className={selected?.asset_id === image.asset_id ? "selected" : ""} onClick={() => setSelected(image)}>
+              <PageControls page={images} label="images" />
+              {images.items.map((image) => (
+                <button key={image.asset_id} className={selected?.asset_id === image.asset_id ? "selected" : ""} onClick={() => setAssetId(image.asset_id)}>
                   <strong>{image.asset_id.slice(0, 8)}</strong>
                   <Badge value={image.status} />
                   <small>{image.detection_count ?? "—"} boxes</small>
@@ -83,7 +62,7 @@ export function Inspection({ initialRunId = "" }: { initialRunId?: string }) {
               ))}
             </div>
             <div className="panel inspection-main">
-              {selected && imageUrl ? <OverlayCanvas source={imageUrl} width={selected.width} height={selected.height} detections={selected.detections} /> : <p>Select an image with a readable artifact.</p>}
+              {selected ? <ImageOverlay key={selected.image_url} image={selected} /> : <p>Select an image with a readable artifact.</p>}
               {selected ? (
                 <div className="detection-list">
                   <h3>Persisted detections</h3>
@@ -102,6 +81,32 @@ export function Inspection({ initialRunId = "" }: { initialRunId?: string }) {
           </div>
         </>
       ) : null}
-    </section>
+    </>
   );
+}
+
+function ImageOverlay({ image }: { image: ImageResult }) {
+  const [source, setSource] = useState("");
+  const [error, setError] = useState<unknown>();
+  useEffect(() => {
+    let active = true;
+    let current = "";
+    api.artifactUrl(image.image_url).then(
+      url => {
+        if (active) {
+          current = url;
+          setSource(url);
+        } else URL.revokeObjectURL(url);
+      },
+      reason => { if (active) setError(reason); },
+    );
+    return () => {
+      active = false;
+      if (current) URL.revokeObjectURL(current);
+    };
+  }, [image.image_url]);
+
+  if (error) return <ErrorState error={error} />;
+  if (!source) return <LoadingState label="Loading image" />;
+  return <OverlayCanvas source={source} width={image.width} height={image.height} detections={image.detections} />;
 }

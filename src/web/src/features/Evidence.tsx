@@ -17,7 +17,7 @@ export function Evidence() {
       <header className="page-header"><div><span className="eyebrow">M5 integration contract</span><h1>Agent evidence</h1><p>This page is presentation structure only. It does not call Qwen, plan tools or verify live answers.</p></div></header>
       <div className="panel question-box">
         <label>Question<textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask an evidence-scoped question…" /></label>
-        <button disabled title="Live agent orchestration is implemented in M5.T1">Live agent unavailable</button>
+        <button disabled title="Live agent orchestration is planned for M5.T1">Live agent unavailable</button>
       </div>
       {error ? <ErrorState error={error} /> : null}
       {!fixture && !error ? <LoadingState /> : null}

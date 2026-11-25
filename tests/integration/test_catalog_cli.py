@@ -200,7 +200,7 @@ def test_catalog_commands_end_to_end_from_outside_the_repository(
 
 
 def test_catalog_commands_reject_bad_input_with_actionable_errors(
-    postgres_engine, tmp_path
+    postgres_engine, tmp_path, monkeypatch
 ):
     package, _ = build_release(tmp_path, "synthetic-t4-cli-errors", 1)
     source_url = url_of(postgres_engine)
@@ -243,6 +243,8 @@ def test_catalog_commands_reject_bad_input_with_actionable_errors(
     assert bad_id.returncode == 1
     assert "canonical UUID" in bad_id.stderr
 
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("TERM", "xterm-256color")
     remote = run_cli(
         work,
         source_url,

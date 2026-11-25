@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -15,7 +14,7 @@ from sqlalchemy import text
 from analytics.metrics import content_sha256
 from retrieval.chunking import chunk_text
 from retrieval.contracts import CorpusManifest, RetrievalResult
-from retrieval.embeddings import EmbeddingBackend, normalize_vector
+from retrieval.embeddings import EmbeddingBackend, normalize_vector, validate_vector
 
 MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
 MAX_QUERY_CHARS = 4000
@@ -110,7 +109,8 @@ def load_manifest(
     for ordinal, document in enumerate(manifest.documents):
         source = _safe_file(root, document.source)
         try:
-            content_bytes = source.read_bytes()
+            with source.open("rb") as stream:
+                content_bytes = stream.read(MAX_DOCUMENT_BYTES + 1)
         except OSError as exc:
             raise CorpusConflict(f"document cannot be read: {document.source}") from exc
         if not content_bytes or len(content_bytes) > MAX_DOCUMENT_BYTES:
@@ -432,12 +432,16 @@ def _insert_index(connection, prepared: PreparedCorpus, backend: EmbeddingBacken
     return row
 
 
-def _vector_literal(values: list[float]) -> str:
-    if not all(math.isfinite(value) for value in values):
-        raise EmbeddingCompatibilityError(
-            "embedding backend produced a non-finite vector"
-        )
-    return "[" + ",".join(format(value, ".17g") for value in values) + "]"
+def _vector_literal(values: list[float], backend: EmbeddingBackend) -> str:
+    try:
+        checked = validate_vector(values, backend.profile.dimensions)
+        if backend.profile.normalization == "l2":
+            checked = validate_vector(
+                normalize_vector(checked), backend.profile.dimensions
+            )
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise EmbeddingCompatibilityError(f"incompatible embedding: {exc}") from exc
+    return "[" + ",".join(format(value, ".17g") for value in checked) + "]"
 
 
 def _mark_failure(engine, index_id: str, message: str) -> None:
@@ -513,15 +517,6 @@ def build_index(
                 )
             with engine.begin() as connection:
                 for row, vector in zip(missing, vectors, strict=True):
-                    if len(vector) != index["dimensions"]:
-                        raise EmbeddingCompatibilityError(
-                            "embedding backend returned the wrong dimension"
-                        )
-                    normalized = (
-                        normalize_vector(vector)
-                        if index["normalization"] == "l2"
-                        else list(vector)
-                    )
                     connection.execute(
                         text("""
                             INSERT INTO chunk_embeddings (
@@ -541,7 +536,7 @@ def build_index(
                             "corpus_version_id": index["corpus_version_id"],
                             "chunk_id": str(row["id"]),
                             "dimensions": index["dimensions"],
-                            "embedding": _vector_literal(normalized),
+                            "embedding": _vector_literal(vector, backend),
                         },
                     )
             if hook is not None:
@@ -723,13 +718,7 @@ def search(
         raise EmbeddingCompatibilityError(
             "query embedding backend returned the wrong batch length"
         )
-    vector = vectors[0]
-    if len(vector) != backend.profile.dimensions:
-        raise EmbeddingCompatibilityError(
-            "query embedding backend returned the wrong dimension"
-        )
-    if backend.profile.normalization == "l2":
-        vector = normalize_vector(vector)
+    vector = _vector_literal(vectors[0], backend)
     with engine.connect() as connection:
         with connection.begin():
             if read_only:
@@ -807,7 +796,7 @@ def search(
                     {
                         "index_id": index_id,
                         "corpus_version_id": corpus_version_id,
-                        "vector": _vector_literal(vector),
+                        "vector": vector,
                         "top_k": top_k,
                     },
                 )

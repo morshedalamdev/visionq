@@ -149,3 +149,29 @@ def test_context_snapshot_request_accepts_only_complete_authorized_scope_sets(
     assert missing_right.status_code == 422
     assert mismatched_pin.status_code == 422
     assert [role for role, _ in captured["scopes"]] == ["left", "right"]
+
+
+def test_readiness_requires_migrated_storage_while_health_stays_available(tmp_path):
+    from sqlalchemy import create_engine
+
+    engine = create_engine("sqlite://")
+    try:
+        app = create_app(
+            engine=engine, analytics_api_token="secret", artifact_root=tmp_path
+        )
+        with TestClient(app) as client:
+            assert client.get("/ready").status_code == 503
+            assert client.get("/health").status_code == 200
+    finally:
+        engine.dispose()
+
+
+def test_context_comparison_rejects_unknown_metrics_before_reading_snapshot():
+    app = create_app(engine=object(), analytics_api_token="secret")
+    with TestClient(app) as client:
+        response = client.post(
+            f"/analytics/context-snapshots/{uuid4()}/compare",
+            headers={"Authorization": "Bearer secret"},
+            json=["invented_accuracy"],
+        )
+    assert response.status_code == 422

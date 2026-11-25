@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import DateTime, MetaData, Table, Uuid, and_, select, text
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import DateTime, MetaData, Table, Uuid, and_, select, text, type_coerce
+from sqlalchemy.dialects.postgresql import DOMAIN, insert
 
 from worker.fixture import publish
 from worker.inventory import canonical_json
@@ -65,9 +65,19 @@ def values_for(table, row):
     return result
 
 
+def comparison_column(column):
+    # Use the domain's underlying SQL type for Python-side operator selection.
+    # The database column and its domain constraints keep their original type.
+    if isinstance(column.type, DOMAIN):
+        return type_coerce(column, column.type.data_type)
+    return column
+
+
 def predicate(table, row):
     values = values_for(table, row)
-    return and_(*(table.c[name] == values[name] for name in KEYS[table.name]))
+    return and_(
+        *(comparison_column(table.c[name]) == values[name] for name in KEYS[table.name])
+    )
 
 
 def ensure_row(connection, table, expected):
@@ -178,7 +188,9 @@ def read_rows(connection, spec):
                     )
                 )
             )
-            statement = statement.where(table.c.sha256.in_(checksums))
+            statement = statement.where(
+                comparison_column(table.c.sha256).in_(checksums)
+            )
         else:
             statement = statement.where(table.c.dataset_version_id == version_id)
         result[name] = sorted(

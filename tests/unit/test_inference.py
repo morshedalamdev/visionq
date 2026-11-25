@@ -129,14 +129,21 @@ def test_selected_model_preserves_frozen_runtime_settings(tmp_path, monkeypatch)
     )
     assert contract["inference_config"]["settings"]["imgsz"] == 320
     assert contract["evidence_kind"] == "synthetic"
+    assert contract["inference_config"]["preprocessing"] == "grayscale-rgb"
 
 
+@pytest.mark.parametrize(
+    ("preprocessing", "expected"),
+    [("grayscale-rgb", (76, 76, 76)), ("rgb", (255, 0, 0))],
+)
 def test_ultralytics_predictor_decodes_extensionless_content_addressed_image(
     tmp_path,
+    preprocessing,
+    expected,
 ):
     image = tmp_path / ("f" * 64)
     stream = io.BytesIO()
-    Image.new("L", (8, 6), 7).save(stream, format="PNG")
+    Image.new("RGB", (8, 6), (255, 0, 0)).save(stream, format="PNG")
     image.write_bytes(stream.getvalue())
 
     class Boxes:
@@ -161,10 +168,12 @@ def test_ultralytics_predictor_decodes_extensionless_content_addressed_image(
         def predict(self, source, **kwargs):
             assert isinstance(source, Image.Image)
             assert source.mode == "RGB"
+            assert source.getpixel((0, 0)) == expected
             return [type("Result", (), {"boxes": BoxList()})()]
 
     predictor = inference.UltralyticsPredictor.__new__(inference.UltralyticsPredictor)
     predictor.model = Model()
+    predictor.preprocessing = preprocessing
 
     assert predictor(image, {"imgsz": 320}, "mps") == [
         {"cls": 2, "conf": 0.8, "box": [1.0, 2.0, 3.0, 4.0]}

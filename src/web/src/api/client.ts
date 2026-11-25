@@ -41,8 +41,13 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
     try {
-      const body = (await response.json()) as { detail?: string };
-      if (body.detail) message = body.detail;
+      const body = (await response.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") {
+        message = body.detail;
+      } else if (Array.isArray(body.detail)) {
+        const first = body.detail[0];
+        if (typeof first?.msg === "string") message = first.msg;
+      }
     } catch {
       // Keep the bounded status message.
     }
@@ -56,11 +61,11 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 export const api = {
-  datasets: () => getJson<ApiList<Dataset>>("/app/datasets?limit=100"),
+  datasets: (offset = 0) => getJson<ApiList<Dataset>>(`/app/datasets?limit=100&offset=${offset}`),
   dataset: (id: string) => getJson<DatasetSummary>(`/app/datasets/${id}`),
-  batches: (datasetId?: string) =>
+  batches: (datasetId?: string, offset = 0) =>
     getJson<ApiList<Batch>>(
-      `/app/batches?limit=100${
+      `/app/batches?limit=100&offset=${offset}${
         datasetId ? `&dataset_version_id=${encodeURIComponent(datasetId)}` : ""
       }`,
     ),
@@ -73,8 +78,9 @@ export const api = {
       createdAfter?: string;
       createdBefore?: string;
     },
+    offset = 0,
   ) => {
-    const query = new URLSearchParams({ limit: "100" });
+    const query = new URLSearchParams({ limit: "100", offset: String(offset) });
     if (datasetId) query.set("dataset_version_id", datasetId);
     if (batchId) query.set("batch_id", batchId);
     if (filters?.status) query.set("status", filters.status);
@@ -83,24 +89,23 @@ export const api = {
       query.set("created_after", `${filters.createdAfter}T00:00:00Z`);
     }
     if (filters?.createdBefore) {
-      query.set("created_before", `${filters.createdBefore}T23:59:59Z`);
+      query.set("created_before", `${filters.createdBefore}T23:59:59.999999Z`);
     }
     return getJson<ApiList<InferenceRun>>(`/app/runs?${query}`);
   },
   run: (id: string) => getJson<RunDetail>(`/app/runs/${id}`),
-  runImages: (id: string) =>
-    getJson<ApiList<ImageResult>>(`/app/runs/${id}/images?limit=100`),
+  runImages: (id: string, offset = 0) =>
+    getJson<ApiList<ImageResult>>(`/app/runs/${id}/images?limit=100&offset=${offset}`),
   snapshot: (
     datasetId: string,
-    batchId: string,
-    runIds: string[],
+    runs: Pick<InferenceRun, "id" | "batch_id">[],
     metricNames: string[],
   ) => {
-    const scopes = runIds.map((runId, index) => ({
-      role: runIds.length === 2 ? (index === 0 ? "left" : "right") : "primary",
+    const scopes = runs.map((run, index) => ({
+      role: runs.length === 2 ? (index === 0 ? "left" : "right") : "primary",
       dataset_version_id: datasetId,
-      batch_id: batchId,
-      inference_run_id: runId,
+      batch_id: run.batch_id,
+      inference_run_id: run.id,
     }));
     return request("/analytics/context-snapshots", {
       method: "POST",
@@ -126,7 +131,7 @@ export const api = {
       (response) => response.json() as Promise<UploadRequest>,
     );
   },
-  uploads: () => getJson<ApiList<UploadRequest>>("/app/uploads?limit=100"),
+  uploads: (offset = 0) => getJson<ApiList<UploadRequest>>(`/app/uploads?limit=100&offset=${offset}`),
   artifactUrl: async (url: string) => {
     const response = await request(url);
     return URL.createObjectURL(await response.blob());
