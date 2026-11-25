@@ -159,9 +159,17 @@ async def run_case(client, session, case):
         plan = await generate(
             client,
             Plan,
-            "Select documents for a document lookup. For batch statistics select "
-            "the exact metric. Distinguish batch size, processed count, box count, "
-            f"and prediction fraction. Question: {question}",
+            "You are a metric and document retrieval router.\n"
+            "Select exactly one option using these definitions:\n"
+            "batch_image_count: total number of images in the batch.\n"
+            "processed_image_count: number of images successfully processed.\n"
+            "predicted_box_count: total number of predicted bounding boxes "
+            "or object detections, NOT the number of images.\n"
+            "prediction_image_ratio: fraction of images containing "
+            "at least one prediction.\n"
+            "documents: search for relevant documents or technical information.\n"
+            "Match the requested entity and measurement to its definition.\n"
+            f"Question: {question}",
         )
         if plan.select != expected_selection:
             raise ValueError(f"Unexpected plan for {question!r}: {plan.select}")
