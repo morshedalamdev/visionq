@@ -256,13 +256,22 @@ def prepare_dataset(
     packet: Path = typer.Option(...),
     output: Path = typer.Option(...),
     official: Path | None = typer.Option(None),
+    isolation_constraints: Path | None = typer.Option(None),
+    isolation_constraints_sha: str | None = typer.Option(None),
     grouping_policy: str = typer.Option("pair_review"),
 ):
     """Create a provisional grouped split plan without training inputs."""
     from worker.preparation import prepare
 
     try:
-        plan = prepare(root, packet, official, grouping_policy)
+        plan = prepare(
+            root,
+            packet,
+            official,
+            grouping_policy,
+            isolation_constraints,
+            isolation_constraints_sha,
+        )
         data = canonical_json(plan)
         write_bundle(root, output, {"plan.json": data})
     except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -290,6 +299,8 @@ def export_dataset(
     output: Path = typer.Option(...),
     near_review: Path | None = typer.Option(None),
     official: Path | None = typer.Option(None),
+    isolation_constraints: Path | None = typer.Option(None),
+    isolation_constraints_sha: str | None = typer.Option(None),
     component_packet: Path | None = typer.Option(None),
     component_packet_sha: str | None = typer.Option(None),
 ):
@@ -307,6 +318,8 @@ def export_dataset(
             official,
             component_packet,
             component_packet_sha,
+            isolation_constraints,
+            isolation_constraints_sha,
         )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         typer.echo(f"Export blocked: {exc}", err=True)
@@ -342,12 +355,23 @@ def component_review_packet(
     plan_sha: str = typer.Option(...),
     output: Path = typer.Option(...),
     official: Path | None = typer.Option(None),
+    isolation_constraints: Path | None = typer.Option(None),
+    isolation_constraints_sha: str | None = typer.Option(None),
 ):
     """Create conservative component contact sheets and pending review."""
     from worker.component_review import make_component_packet
 
     try:
-        result = make_component_packet(root, packet, plan, plan_sha, output, official)
+        result = make_component_packet(
+            root,
+            packet,
+            plan,
+            plan_sha,
+            output,
+            official,
+            isolation_constraints,
+            isolation_constraints_sha,
+        )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         typer.echo(f"Component packet failed: {exc}", err=True)
         raise typer.Exit(1) from exc

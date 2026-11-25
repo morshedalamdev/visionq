@@ -191,3 +191,69 @@ Both CLI entry points produced byte-identical plans and packets.
 The original 1,083 pending pair decisions remain historical evidence. The next
 release gate is genuine review of all 25 components, followed by a passing bound
 receipt, final DQ08/membership freeze, reproducible export and export verification.
+
+## Approved additional isolation constraint — 25 November 2026
+
+The owner approved co-location of former components 17 and 18, retaining seven
+separate images, their annotations and source identities. Translation-aware
+original-pixel investigation found strong overlapping visual content; this does
+not establish duplicate identity or shared acquisition. Evidence remains at
+`artifacts/m2t3-scratch-investigation-TjTzhA/`. No broad similarity investigation
+or dHash threshold change was made. Neither this heuristic nor the additional
+constraint guarantees discovery of every acquisition relationship.
+
+`approved-isolation-v1` extends `dhash-connected-components-v1` with explicit,
+separate component-union constraints. Each approved constraint binds the original
+candidate-plan digest, original candidate-graph digest, pre-amendment component
+plan, exact-group/asset/pixel/alias/annotation lineage identities, and embedded
+investigation evidence with checksums. The owner approval records this chat's
+methodology authorization; it is not a completed visual review or a cryptographic
+signature. Complete component membership is united before the unchanged seed-42
+allocator runs. Official partition conflicts still fail closed.
+
+Preparation, component packet generation and eventual export accept
+`--isolation-constraints FILE --isolation-constraints-sha PINNED_SHA`. Both are
+required when using the amendment. Changed bindings, pending approval, missing
+or changed evidence, or mismatched identities are rejected. Export recomputes the
+amended plan and requires the new packet's genuine completed review; an old
+receipt cannot approve the new plan. Original graph and review files are preserved.
+The constraint and its hash are retained in the plan, review binding and release
+receipt. The old component and pair-review workflows remain compatible.
+
+Verified evidence root: `artifacts/m2t3-final-isolation-BCvxnD/`.
+
+- Constraint: `approved-isolation.json`, SHA-256
+  `4af6862a012ba3a89f7626934f7cf669739d99122ed5b9e73eaf5a2d2d6079c9`.
+- Plan: `plan-a/plan.json`, SHA-256
+  `0585278c54569a17c98142fa80250bf649c872ce5f2405a8942486b27f369b69`.
+- Packet: `packet-a/packet.json`, SHA-256
+  `c324d4df23a9f4c879c7aa4b097ec64ee959b6acbc4e954c3043da94038732c3`.
+- Allocation reproduced: 1287 train / 258 validation / 252 test, 1797 unique
+  eligible assets, three unchanged exclusions, 1661 allocation groups and 24
+  nontrivial components covering 160 images. All six classes in every split.
+- Exactly 108 assignments changed, matching the approved simulation. Zero
+  original candidate edges or additional isolation constraints cross splits.
+- Both CLI entry points produced byte-identical plans and packets. Original
+  source and annotation identities, 1083-edge graph and historical evidence are
+  unchanged; 3601 files / 28208067 bytes still match T1.
+- 72 focused regressions passed, including 17 preparation tests. Ruff lint,
+  formatting, locked dependency and diff checks passed. Pending review exits 1.
+
+`advisory-crosswalk.json` maps prior advisory observations to the new components.
+Prior split labels there are historical. No human approval is transferred; all
+24 decisions start pending. Open `packet-a/index.html`, inspect all component
+members and boxes, edit only `packet-a/component-review.json`, and supply genuine
+`accept_isolation`/`unresolved` decisions and notes, actual reviewer, a
+ timezone-qualified completion timestamp, and methodology confirmation.
+
+From the repository root, validate using:
+
+```zsh
+uv run --locked visionq check-component-review \
+  --packet artifacts/m2t3-final-isolation-BCvxnD/packet-a \
+  --packet-sha c324d4df23a9f4c879c7aa4b097ec64ee959b6acbc4e954c3043da94038732c3
+```
+
+M2.T3 remains open. Final owner review, a passing new receipt, final DQ08
+acceptance, membership freeze and reproducible verified export remain required.
+No final training inputs were generated.

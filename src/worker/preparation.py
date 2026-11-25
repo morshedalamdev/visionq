@@ -135,14 +135,28 @@ def dhash(data):
 
 
 def prepare(
-    root: Path, packet: Path, official_path=None, grouping_policy="pair_review"
+    root: Path,
+    packet: Path,
+    official_path=None,
+    grouping_policy="pair_review",
+    isolation_constraints=None,
+    isolation_constraints_sha=None,
 ):
     if grouping_policy != "pair_review":
-        from worker.component_review import POLICY_NAME, component_plan
+        from worker.component_review import (
+            POLICY_NAME,
+            component_plan,
+            load_constraints,
+        )
 
         if grouping_policy != POLICY_NAME:
             raise ValueError("unknown grouping policy")
-        return component_plan(prepare(root, packet, official_path))
+        return component_plan(
+            prepare(root, packet, official_path),
+            load_constraints(isolation_constraints, isolation_constraints_sha),
+        )
+    if isolation_constraints is not None or isolation_constraints_sha is not None:
+        raise ValueError("isolation constraints require component grouping policy")
     return _prepare(root, packet, official_path)
 
 
@@ -319,6 +333,8 @@ def export(
     official_path=None,
     component_packet=None,
     component_packet_sha=None,
+    isolation_constraints=None,
+    isolation_constraints_sha=None,
 ):
     """Fail closed on incomplete human review, drift, or unresolved near duplicates."""
     receipt = check_review(packet)
@@ -328,7 +344,12 @@ def export(
     plan = json.loads(data)
     if (
         prepare(
-            root, packet, official_path, plan["policy"].get("grouping", "pair_review")
+            root,
+            packet,
+            official_path,
+            plan["policy"].get("grouping", "pair_review"),
+            isolation_constraints,
+            isolation_constraints_sha,
         )
         != plan
     ):

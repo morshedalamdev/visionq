@@ -457,3 +457,127 @@ def test_component_export_requires_review_and_preserves_quarantine(prepared, tmp
     updated = prepare(root, packet, grouping_policy=POLICY_NAME)
     assert excluded in updated["excluded"]
     assert all(excluded not in r["aliases"] for r in updated["records"])
+
+
+def test_additional_isolation_binding_and_release_gate(prepared, tmp_path):
+    from worker.component_review import (
+        ALGORITHM,
+        CONSTRAINT_VERSION,
+        POLICY_NAME,
+        component_plan,
+        constraint_identity,
+        make_component_packet,
+    )
+
+    root, packet = prepared
+    candidate = prepare(root, packet)
+    base = component_plan(candidate)
+    groups = base["component_manifest"][:2]
+    members = sorted(m for g in groups for m in g["members"])
+    records = {r["exact_group_id"]: r for r in base["records"]}
+    evidence = "Synthetic evidence only"
+    constraints = {
+        "version": CONSTRAINT_VERSION,
+        "algorithm": ALGORITHM,
+        "candidate_plan_sha256": sha256(canonical_json(candidate)),
+        "candidate_graph_sha256": sha256(canonical_json(candidate["near_candidates"])),
+        "base_component_plan_sha256": sha256(canonical_json(base)),
+        "approval": {
+            "status": "approved",
+            "owner": "Synthetic fixture",
+            "basis": "Known synthetic case",
+            "approved_on": "2026-11-25",
+        },
+        "evidence": {
+            "fixture": {"text": evidence, "sha256": sha256(evidence.encode())}
+        },
+        "items": [
+            {
+                "component_ids": [g["group_id"] for g in groups],
+                "source_identities": [constraint_identity(records[m]) for m in members],
+            }
+        ],
+    }
+    constrained = component_plan(candidate, constraints)
+    selected = [r for r in constrained["records"] if r["exact_group_id"] in members]
+    assert len({r["group_id"] for r in selected}) == 1
+    assert len({r["split"] for r in selected}) == 1
+    assert len(constrained["records"]) == len(base["records"])
+    assert constrained["near_candidates"] == candidate["near_candidates"]
+    assert component_plan(candidate, constraints) == constrained
+    for field in ("algorithm", "candidate_graph_sha256", "base_component_plan_sha256"):
+        broken = json.loads(canonical_json(constraints))
+        broken[field] = "changed"
+        with pytest.raises(ValueError, match="stale"):
+            component_plan(candidate, broken)
+    broken = json.loads(canonical_json(constraints))
+    broken["evidence"]["fixture"]["text"] = "modified"
+    with pytest.raises(ValueError, match="evidence"):
+        component_plan(candidate, broken)
+    broken = json.loads(canonical_json(constraints))
+    broken["items"][0]["source_identities"][0]["asset_id"] = "changed"
+    with pytest.raises(ValueError, match="identity"):
+        component_plan(candidate, broken)
+    broken = json.loads(canonical_json(constraints))
+    broken["approval"]["status"] = "pending"
+    with pytest.raises(ValueError, match="approval"):
+        component_plan(candidate, broken)
+    path = tmp_path / "constraints.json"
+    path.write_bytes(canonical_json(constraints))
+    pin = sha256(path.read_bytes())
+    with pytest.raises(ValueError, match="checksum"):
+        prepare(
+            root,
+            packet,
+            grouping_policy=POLICY_NAME,
+            isolation_constraints=path,
+            isolation_constraints_sha="0" * 64,
+        )
+    plan = prepare(
+        root,
+        packet,
+        grouping_policy=POLICY_NAME,
+        isolation_constraints=path,
+        isolation_constraints_sha=pin,
+    )
+    assert plan == constrained
+    plan_path = tmp_path / "constrained-plan.json"
+    plan_path.write_bytes(canonical_json(plan))
+    plan_sha = sha256(plan_path.read_bytes())
+    review_packet = tmp_path / "constrained-review"
+    result = make_component_packet(
+        root,
+        packet,
+        plan_path,
+        plan_sha,
+        review_packet,
+        isolation_constraints=path,
+        isolation_constraints_sha=pin,
+    )
+    with pytest.raises(ValueError, match="changed"):
+        export(root, packet, plan_path, plan_sha, tmp_path / "blocked")
+    kwargs = {
+        "component_packet": review_packet,
+        "component_packet_sha": result["packet_sha256"],
+        "isolation_constraints": path,
+        "isolation_constraints_sha": pin,
+    }
+    with pytest.raises(ValueError, match="reviewer required"):
+        export(root, packet, plan_path, plan_sha, tmp_path / "blocked", **kwargs)
+    review_path = review_packet / "component-review.json"
+    review = json.loads(review_path.read_bytes())
+    assert review["isolation_constraints_sha256"] == pin
+    review.update(
+        reviewer="Synthetic fixture",
+        reviewed_at="2026-11-25T12:00:00+08:00",
+        methodology_approved=True,
+    )
+    for item in review["items"]:
+        item.update(decision="accept_isolation", notes="Known synthetic fixture")
+    review_path.write_bytes(canonical_json(review))
+    assert (
+        export(
+            root, packet, plan_path, plan_sha, tmp_path / "synthetic-only", **kwargs
+        )["assets"]
+        == 24
+    )

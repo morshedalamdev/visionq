@@ -19,7 +19,68 @@ POLICY_NAME = "conservative_similarity_component"
 ALGORITHM = "dhash-connected-components-v1"
 
 
-def component_plan(candidate):
+CONSTRAINT_VERSION = "approved-isolation-v1"
+
+
+def load_constraints(path, digest):
+    if path is None and digest is None:
+        return None
+    if path is None or digest is None:
+        raise ValueError("isolation constraints require file and pinned SHA-256")
+    data = path.read_bytes()
+    if sha256(data) != digest:
+        raise ValueError("isolation constraint checksum mismatch")
+    return json.loads(data)
+
+
+def constraint_identity(record):
+    return {
+        k: record[k]
+        for k in ("exact_group_id", "asset_id", "pixel_sha256", "aliases", "lineage")
+    }
+
+
+def validate_constraints(candidate, constraints):
+    base = component_plan(candidate)
+    expected = {
+        "version": CONSTRAINT_VERSION,
+        "algorithm": ALGORITHM,
+        "candidate_plan_sha256": sha256(canonical_json(candidate)),
+        "candidate_graph_sha256": sha256(canonical_json(candidate["near_candidates"])),
+        "base_component_plan_sha256": sha256(canonical_json(base)),
+    }
+    if any(constraints.get(k) != v for k, v in expected.items()):
+        raise ValueError("stale isolation constraint binding")
+    approval = constraints.get("approval", {})
+    if approval.get("status") != "approved" or any(
+        not isinstance(approval.get(k), str) or not approval[k].strip()
+        for k in ("owner", "basis", "approved_on")
+    ):
+        raise ValueError("explicit owner isolation approval required")
+    evidence = constraints.get("evidence", {})
+    if not evidence or any(
+        sha256(v["text"].encode()) != v["sha256"] for v in evidence.values()
+    ):
+        raise ValueError("isolation investigation evidence missing or changed")
+    groups = {g["group_id"]: g for g in base["component_manifest"]}
+    records = {r["exact_group_id"]: r for r in base["records"]}
+    unions = []
+    if not constraints.get("items"):
+        raise ValueError("empty isolation constraint")
+    for item in constraints["items"]:
+        ids = item["component_ids"]
+        if len(ids) < 2 or len(set(ids)) != len(ids) or set(ids) - groups.keys():
+            raise ValueError("invalid isolation component membership")
+        members = sorted({m for g in ids for m in groups[g]["members"]})
+        if item["source_identities"] != [
+            constraint_identity(records[m]) for m in members
+        ]:
+            raise ValueError("isolation source or annotation identity mismatch")
+        unions.append(members)
+    return unions
+
+
+def component_plan(candidate, constraints=None):
     """Contract eligible exact groups along every existing candidate edge."""
     plan = deepcopy(candidate)
     records = {r["group_id"]: r for r in plan["records"]}
@@ -33,6 +94,11 @@ def component_plan(candidate):
     for edge in plan["near_candidates"]:
         a, b = sorted(find(g) for g in edge["groups"])
         parents[b] = a
+    if constraints is not None:
+        for ids in validate_constraints(candidate, constraints):
+            for member in ids[1:]:
+                a, b = sorted((find(ids[0]), find(member)))
+                parents[b] = a
     members = {}
     for g in sorted(records):
         members.setdefault(find(g), []).append(g)
@@ -57,6 +123,10 @@ def component_plan(candidate):
             records[g]["split"] = assignments[group["group_id"]]
     plan["policy"] = {**plan["policy"], "grouping": POLICY_NAME, "algorithm": ALGORITHM}
     plan["candidate_plan_sha256"] = sha256(canonical_json(candidate))
+    if constraints is not None:
+        plan["policy"]["isolation_constraint_version"] = CONSTRAINT_VERSION
+        plan["isolation_constraints"] = deepcopy(constraints)
+        plan["isolation_constraints_sha256"] = sha256(canonical_json(constraints))
     plan["component_manifest"] = groups
     plan["component_manifest_sha256"] = sha256(canonical_json(groups))
     for split in SPLITS:
@@ -76,6 +146,18 @@ def component_plan(candidate):
 
 
 def binding(plan):
+    extra = {}
+    if "isolation_constraints" in plan:
+        digest = sha256(canonical_json(plan["isolation_constraints"]))
+        if (
+            digest != plan.get("isolation_constraints_sha256")
+            or plan["policy"].get("isolation_constraint_version") != CONSTRAINT_VERSION
+        ):
+            raise ValueError("isolation approval binding mismatch")
+        extra = {
+            "isolation_constraints_sha256": digest,
+            "isolation_constraint_version": CONSTRAINT_VERSION,
+        }
     if (
         plan["policy"].get("grouping") != POLICY_NAME
         or plan["policy"].get("algorithm") != ALGORITHM
@@ -84,6 +166,7 @@ def binding(plan):
     ):
         raise ValueError("component policy or manifest mismatch")
     return {
+        **extra,
         "policy": POLICY_NAME,
         "algorithm": ALGORITHM,
         "plan_sha256": sha256(canonical_json(plan)),
@@ -93,14 +176,31 @@ def binding(plan):
 
 
 def make_component_packet(
-    root, packet, plan_path, plan_sha, output, official_path=None
+    root,
+    packet,
+    plan_path,
+    plan_sha,
+    output,
+    official_path=None,
+    isolation_constraints=None,
+    isolation_constraints_sha=None,
 ):
     receipt = check_review(packet)
     data = plan_path.read_bytes()
     if sha256(data) != plan_sha:
         raise ValueError("plan checksum mismatch")
     plan = json.loads(data)
-    if prepare(root, packet, official_path, POLICY_NAME) != plan:
+    if (
+        prepare(
+            root,
+            packet,
+            official_path,
+            POLICY_NAME,
+            isolation_constraints,
+            isolation_constraints_sha,
+        )
+        != plan
+    ):
         raise ValueError("plan or reviewed inputs changed")
     report = json.loads((packet / "audit.json").read_bytes())
     records = {r["exact_group_id"]: r for r in plan["records"]}
