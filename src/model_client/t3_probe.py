@@ -98,9 +98,9 @@ async def evidence(session, question, selection):
         schema = BatchMetricsResponse
 
     result = await session.call_tool(tool, {"snapshot_id": SNAPSHOT, **args})
-    if result.isError:
+    if result.is_error:
         raise ValueError(f"{tool} returned an error")
-    data = schema.model_validate(result.structuredContent)
+    data = schema.model_validate(result.structured_content)
     if data.snapshot_id != SNAPSHOT or not SHA256.fullmatch(data.snapshot_sha256):
         raise ValueError("Unexpected snapshot identity")
 
