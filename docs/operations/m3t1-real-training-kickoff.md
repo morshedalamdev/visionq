@@ -1,9 +1,11 @@
 # M3.T1 real YOLO11n kickoff — prepared, not executed
 
-Do not start training from this handoff yet. The development plan starts real M3
-only after the M2 module gate. Real M2.T4 local ingestion/recovery now has evidence,
-but mandatory rights-reviewed private Blob backup/restore is still blocked by
-rights review and owner authorization. This document does not waive that gate.
+M2 is closed under the owner-approved hybrid recovery criteria; its dependency
+is cleared. The next task is M3.T1 real preflight/training. This handoff does not
+start training: obtain the owner's actual real-training intended-use decision and
+execution authorization, then follow the pinned commands below. Cloud contains
+only approved recovery-control metadata; the complete dataset/catalog backup is
+retained independently offline. See m2-hybrid-recovery-acceptance.md.
 
 ## Exact inputs
 

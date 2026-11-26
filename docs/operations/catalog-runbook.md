@@ -1,5 +1,7 @@
 # Catalog ingestion, backup and restore runbook (M2.T4)
 
+Current acceptance: M2.T4/M2 passed on 26 November 2026 under the owner-approved hybrid architecture. See [hybrid recovery evidence](m2-hybrid-recovery-acceptance.md). Historical full-cloud-backup blockers below are superseded; the real catalog itself remains local-only, and only the six approved control files are stored in Blob.
+
 Scope: the existing synthetic T4 catalog plus the **pinned, owner-authorized
 NEU-DET v1** release. Other real datasets remain rejected. See the real-authorization
 section below; synthetic names cannot bypass real-release verification.

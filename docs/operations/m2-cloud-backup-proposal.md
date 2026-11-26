@@ -1,5 +1,7 @@
 # M2 cloud backup proposal — 26 November 2026
 
+Owner approved the exact scope and hybrid criteria; actual acceptance passed on 26 November 2026. See [hybrid recovery evidence](m2-hybrid-recovery-acceptance.md). This proposal is retained as historical scope evidence; no additional bytes were authorized or uploaded.
+
 Status: **proposal only; no Azure access or upload authorized/executed**.
 M2 remains blocked. No accepted plan/architecture requirement has been amended.
 

@@ -1,5 +1,7 @@
 # NEU-DET dataset v1 — accepted 25 November 2026
 
+M2 module closed on 26 November 2026 after [owner-approved hybrid recovery](../operations/m2-hybrid-recovery-acceptance.md) passed. Dataset identities and frozen membership below are unchanged.
+
 M2.T3 status: **passed** for the private local dataset release. M2 remains open
 for rights-reviewed cloud backup acceptance in M2.T4. Real local ingestion and
 recovery passed on 26 November; see [catalog evidence](dataset-v1-catalog.md).

@@ -77,6 +77,25 @@ Backup sequence: pause application/worker writes, produce a consistent PostgreSQ
 
 Restore into an empty environment, verify every downloaded hash, restore the database and referenced files, then reopen a saved run/answer and compare counts, metrics and evidence hashes. Test interruption and denied/anonymous access. Keep a verified local copy independently of the subscription. LRS alone is not protection from accidental deletion or account expiry. Use the M1.T1 source inventory for the detector and confirm its terms before weight acquisition or copying in the vision work. Resume generator/embedding access, terms and private-hosting checks in M1.T3 Stage 2 before downloading or copying either snapshot. Check dataset terms/private-copy rights in **M2 before acquisition/cloud upload**, and review redistribution rights before publication. A model manifest is enough for routinely downloadable weights, but cache exact weights and each host's correct images for the offline defense. [Storage redundancy](https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy).
 
+## Owner-approved hybrid recovery — 26 November 2026
+
+For VisionQ v1.0 restricted NEU-DET material, the owner replaced full cloud-catalog
+backup with a two-source recovery contract. Existing private Blob stores only the
+six-file 3615-byte recovery-control package pinned by
+`9b85738ad6893f44c4cb642529357427863f847f7628d236c53870e2b08dedd9`.
+An independent owner-controlled offline medium retains the complete catalog and
+all dataset artifacts. Approval does not override third-party rights; no dataset
+samples, boxes, XML, derived images, catalog contents or model weights are uploaded.
+
+M2 acceptance and M6 fresh recovery must download and verify private control
+metadata, reject anonymous access, verify the offline full backup against its
+anchor, then restore into an empty local database and compare records and every
+artifact hash. Missing/corrupt control metadata or offline artifacts fail closed.
+Cloud alone is not disaster recovery for this dataset. Record the offline medium,
+owner custody and retention responsibility, maintain both sources through the
+operations horizon, and include this dependency in M6 limitations/rehearsal.
+Previously verified M1 foundation backups remain unchanged. Hybrid recovery needs no VM. During acceptance the existing VM was found running; the owner explicitly instructed leaving it running and will handle power state. No agent VM state change occurred.
+
 ## Budget and twelve-month operating plan
 
 These are **proposed allocation ceilings**, not vendor quotes, a spend authorization or an enforced cap. Recalculate from actual regional prices before any resource creation. Keep the student subscription's spending protection; no automatic paid upgrade, Marketplace purchase or support plan is included.
@@ -128,10 +147,10 @@ CI supplements the user's task checks. A green workflow does not establish that 
 | M1.T1 | Completed under the owner-approved scope. Its historical V08 deferral and dated platform evidence are recorded in the [foundation record](../agent/M1_FOUNDATION.md). Use the Stage 1 snapshot above for current Azure preflight |
 | M1.T2 | Completed, V01–V08. Preserve private Blob Storage resources, checksum/restore and interrupted-backup evidence, and the CI record in the [task log](../agent/TASK_LOG.md) |
 | M1.T3 | Deferred after preflight. On resumption complete Stage 2 model access/terms, downloads, SHA-256 manifests and staging, then Stage 3 T3 dependencies, probe/metric code, tests, Compose overlay and CPU image preparation. Once cost and access are confirmed, manually provision the selected affordable VM and run both vLLM services together with the MCP fixture from [the M1.T3 gate](../plan/development-plan.md); record hardware/platform-specific image digests/model digests, five-question gate, SSH-only access and deallocation. Carry the local cached-model restart to post-release V04 recovery in M6.T1 |
-| M2.T4 | Back up a released, rights-reviewed dataset manifest and complete catalog; test resume and restore without double-counting. Record local versus Azure copies |
+| M2.T4 | Verify approved private Blob recovery-control metadata plus independent offline complete catalog/artifacts; test hybrid restore and resume without double-counting. Record both sources and retention |
 | M3.T1–T3 | Record training/inference host and cost, choose a measured device path before test; checkpoint and prediction backups. Azure GPU is not presumed |
 | M4–M5 | Develop SQL/backend and dashboard with local results and clearly labeled interface fixtures. After M4.T1 and M4.T4, pass M1.T3 and the M1 integration gate. Finish M4.T2, M4.T3 and M4 integration before M5. Pin one hardware profile for all final LLM conditions. Retain snapshot/corpus/model hashes when moving hosts |
-| M6.T1 | Fresh local restore from Blob, post-release V04 offline workflow, reopened history/evidence, cloud isolation and deallocation checks; document cost/backup/cleanup runbook |
+| M6.T1 | Fresh hybrid local restore using Blob control metadata and independent offline artifacts, post-release V04 offline workflow, reopened history/evidence, cloud isolation and deallocation checks; document cost/backup/cleanup runbook |
 | M6.T4 | Record final credit/resource ledger, December demo arrangements and post-defense retention/expiry handoff |
 
 All additions inherit the mandatory task/module gates in [WORKFLOW](../agent/WORKFLOW.md). The Stage 1 record supports a future provisioning decision. Runtime and research claims require the actual task evidence.

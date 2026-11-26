@@ -246,3 +246,15 @@ docs/               this documentation
 ```
 
 The foundation already includes Compose, Alembic, the dependency lock, unit tests and Foundation CI. The ignored local input at `dataset/NEU-DET/` is separate from `data/` and `artifacts/`. Verify paths and runnable CLI commands against the checkout as each task starts.
+
+
+## Restricted-data hybrid recovery amendment — 26 November 2026
+
+Owner approved the M2/M6 two-source contract: private Blob holds only approved
+recovery-control metadata; independent owner-controlled offline media holds the
+complete NEU-DET catalog and artifact backup. The downloaded control digest selects
+and verifies the offline backup before fresh restore and reconciliation. Both are
+mandatory; no cloud-only recovery claim is permitted. Exact metadata scope and
+acceptance are specified in development-plan.md and azure-and-student-services.md.
+The existing local catalog restore/constraints and M1 backup format remain intact.
+Restricted dataset/model bytes remain unauthorized for cloud storage.

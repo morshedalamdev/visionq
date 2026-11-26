@@ -1,5 +1,7 @@
 # NEU-DET v1 real catalog evidence — 26 November 2026
 
+Current acceptance: M2.T4 and M2 passed on 26 November 2026 under approved hybrid recovery. See [actual cloud/offline recovery evidence](../operations/m2-hybrid-recovery-acceptance.md). The earlier full-cloud acceptance blocker below is historical; restricted catalog/artifact cloud upload remains prohibited.
+
 M2.T4 local real-data acceptance passed. Global M2.T4/M2 acceptance remains
 **blocked** on mandatory rights-reviewed private Blob backup/restore and explicit
 owner cloud authorization. No cloud access, training, commit or push occurred.
