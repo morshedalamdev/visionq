@@ -21,6 +21,7 @@ from analytics.metrics import (
     definition_sha256,
     normalize_metric_names,
 )
+from worker.evaluation_registry import scoped_evidence
 
 SnapshotHook = Callable[[str], None]
 CONTEXT_FORMAT = "visionq-question-snapshot-v2"
@@ -383,6 +384,9 @@ def _build_evidence(
                 "finished_at": loaded["finished_at"],
             },
         },
+        "evaluation_links": scoped_evidence(
+            connection, scope.dataset_version_id, loaded["model_id"]
+        ),
         "metrics": metrics,
     }
 
@@ -622,11 +626,6 @@ def capture_context_snapshot(
             for role, scope in scopes:
                 evidence = _build_evidence(connection, scope, selected)
                 evidence["quality"] = _quality_evidence(connection, scope)
-                evidence["evaluation_links"] = {
-                    "available": False,
-                    "items": [],
-                    "reason": "evaluation link persistence is not implemented",
-                }
                 scope_set.append({"role": role, "evidence": evidence})
             pin = _retrieval_pin(
                 connection,

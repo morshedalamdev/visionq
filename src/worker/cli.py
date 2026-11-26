@@ -924,3 +924,32 @@ def inference_reconcile(
     typer.echo(inference_report_text(report), nl=False)
     if not report["ok"]:
         raise typer.Exit(code=1)
+
+
+@app.command("inference-register-evidence")
+def inference_register_evidence(
+    model_id: str = typer.Option(...),
+    artifact_root: Path = typer.Option(...),
+    evaluation: Path = typer.Option(...),
+    evaluation_sha: str = typer.Option(...),
+    performance: Path = typer.Option(...),
+    performance_sha: str = typer.Option(...),
+    export: Path = typer.Option(...),
+    export_sha: str = typer.Option(...),
+):
+    """Import verified frozen research artifacts without model execution."""
+    from worker.evaluation_registry import register_evidence
+
+    with catalog_session("inference-register-evidence") as engine:
+        result = register_evidence(
+            engine,
+            artifact_root,
+            model_id,
+            evaluation,
+            evaluation_sha,
+            performance,
+            performance_sha,
+            export,
+            export_sha,
+        )
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
