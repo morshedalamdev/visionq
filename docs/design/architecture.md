@@ -258,3 +258,15 @@ mandatory; no cloud-only recovery claim is permitted. Exact metadata scope and
 acceptance are specified in development-plan.md and azure-and-student-services.md.
 The existing local catalog restore/constraints and M1 backup format remain intact.
 Restricted dataset/model bytes remain unauthorized for cloud storage.
+
+
+### M4 private hybrid evidence boundary — 26 November 2026
+
+Real inspection/catalog/evaluation evidence stays local. Existing Azure models
+receive only owner-approved application-operation text and generic questions;
+remote prompts and embeddings are transfers. The ten-document corpus is separate
+from detector evidence and future withheld research questions. Local API/MCP
+expose immutable model/dataset-scoped evaluation and hardware performance links;
+React renders those records with explicit evidence labels. Complete context
+snapshots are bounded to5,000 quality findings and8MiB and reject larger inputs.
+See operations/m4-live-acceptance.md; browser acceptance remains open.

@@ -7,7 +7,7 @@ research claims are not implemented by this task.
 
 ## Backend
 
-Migrate PostgreSQL to `0007_upload_requests`, configure:
+Migrate PostgreSQL to `0008_detector_evidence`, configure:
 
 ```text
 VISIONQ_DATABASE_URL=postgresql+psycopg://...
@@ -101,3 +101,5 @@ configured, the artifact root is accessible and the upload table can be read.
 The API can start with document search disabled. For live search, set
 `VISIONQ_API_EMBEDDING_BACKEND=openai-compatible` and supply the same private
 vLLM model, revision, dimensions and prefixes used to build the index.
+
+Real acceptance and remaining browser gate: [26 November record](m4-live-acceptance.md).

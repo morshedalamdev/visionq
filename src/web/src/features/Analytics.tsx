@@ -6,6 +6,7 @@ import type {
   InferenceRun,
 } from "../api/types";
 import { Badge, ErrorState, LoadingState } from "../components/AsyncState";
+import { ResearchMetrics } from "../components/ResearchMetrics";
 import { MetricGrid } from "../components/MetricGrid";
 
 import { usePage } from "../api/usePage";
@@ -115,6 +116,7 @@ function Snapshot({ datasetId, left, right }: Scope & { right?: InferenceRun }) 
             <div className="panel" key={scope.role}>
               <div className="panel-heading"><h2>{scope.role}</h2><Badge value={String(scope.evidence.coverage.evidence_status)} /></div>
               <MetricGrid metrics={scope.evidence.metrics} />
+              <ResearchMetrics evidence={scope.evidence.evaluation_links} />
             </div>
           ))}
           {comparisons.length ? (
@@ -139,10 +141,7 @@ function Snapshot({ datasetId, left, right }: Scope & { right?: InferenceRun }) 
               </div>
             </div>
           ) : null}
-          <div className="panel unavailable-panel">
-            <h2>Evaluation performance</h2>
-            <p>Precision, recall, mAP50 and mAP50–95 are unavailable because no authoritative persisted evaluation-record table exists in M4.T4. Synthetic training artifacts are not represented as live measurements.</p>
-          </div>
+
         </>
       ) : null}
     </>

@@ -27,8 +27,10 @@ SnapshotHook = Callable[[str], None]
 CONTEXT_FORMAT = "visionq-question-snapshot-v2"
 CONTEXT_ROLES = frozenset({"primary", "left", "right"})
 MAX_CONTEXT_SCOPES = 3
-MAX_QUALITY_FINDINGS = 200
-MAX_CONTEXT_PAYLOAD_BYTES = 512 * 1024
+# A released 1,797-image catalog currently has 3,779 retained findings.
+# Keep complete immutable evidence with a finite bound; never silently truncate.
+MAX_QUALITY_FINDINGS = 5_000
+MAX_CONTEXT_PAYLOAD_BYTES = 8 * 1024 * 1024
 
 
 class AnalyticsError(RuntimeError):

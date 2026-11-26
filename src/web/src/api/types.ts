@@ -137,6 +137,7 @@ export interface ContextSnapshot {
         coverage: Record<string, number | string>;
         provenance: Record<string, unknown>;
         metrics: Metric[];
+        evaluation_links?: ResearchEvidence;
       };
     }>;
   };
@@ -178,4 +179,18 @@ export interface AgentFixture {
 export interface ApiList<T> {
   items: T[];
   page: Page;
+}
+
+export interface ResearchEvidence {
+  available: boolean;
+  scope: string;
+  items: Array<{
+    sha256: string;
+    kind: "evaluation" | "performance";
+    evidence_class: string;
+    evaluation_sha256: string | null;
+    selection: Record<string, unknown>;
+    limitations: string[];
+    results: Record<string, unknown>;
+  }>;
 }
