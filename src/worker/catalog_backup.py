@@ -20,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
+from worker.backup import Directory
 from worker.catalog_store import (
     check_blob,
     ensure_row,
@@ -103,31 +104,48 @@ def object_member(checksum: str) -> str:
     return f"objects/{checksum}"
 
 
-def rights_for_package(package) -> dict:
-    specification = package.specification()
+def rights_for_specification(specification):
     versions = specification["rows"]["dataset_versions"]
     if len(versions) != 1:
         raise ValueError("catalog package has no unique dataset version")
-
-    evidence_kind = versions[0]["evidence_kind"]
-    if evidence_kind != "synthetic":
-        raise ValueError(
-            "released catalog backup blocked: artifact rights clearance is absent"
-        )
-
-    return {
+    kind = versions[0]["evidence_kind"]
+    categories = sorted(
+        {c for a in specification["artifacts"].values() for c in a["categories"]}
+    )
+    result = {
         "format": RIGHTS_FORMAT,
-        "evidence_kind": "synthetic",
+        "evidence_kind": kind,
         "classification": "synthetic-only",
-        "included_categories": sorted(
-            {
-                category
-                for categories in package.categories.values()
-                for category in categories
-            }
-        ),
+        "included_categories": categories,
         "excluded_categories": [],
     }
+    if kind != "synthetic":
+        from worker.real_release import RELEASE_SHA, SOURCE_SHA
+
+        version = versions[0]
+        if (
+            kind,
+            version["dataset_name"],
+            version["version"],
+            version["release_manifest_sha256"],
+            version["source_manifest_sha256"],
+        ) != ("released", "NEU-DET", 1, RELEASE_SHA, SOURCE_SHA):
+            raise ValueError("rights clearance requires authorized NEU-DET v1")
+        result.update(
+            classification="owner-authorized-private-local-only",
+            cloud_authorized=False,
+            redistribution_terms="unresolved",
+            authorization="Owner M2.T4 Real Dataset Ingestion and Module Closure: local backup and disposable restore",
+            category_permissions={
+                c: {"local_backup_restore": True, "cloud_upload": False}
+                for c in categories
+            },
+        )
+    return result
+
+
+def rights_for_package(package):
+    return rights_for_specification(package.specification())
 
 
 def reconciled_snapshot(engine, root: Path, specification):
@@ -206,10 +224,15 @@ def load_bundle(store, backup_id: str, manifest: bytes):
             raise ValueError("unsupported catalog package specification")
         if rights.get("format") != RIGHTS_FORMAT:
             raise ValueError("unsupported rights manifest")
-        if rights.get("evidence_kind") != "synthetic":
+        expected_rights = rights_for_specification(specification)
+        if rights.get("evidence_kind") != expected_rights["evidence_kind"]:
             raise ValueError("released backup restore requires approved rights")
-        if rights.get("classification") != "synthetic-only":
+        if rights.get("classification") != expected_rights["classification"]:
             raise ValueError("unsupported catalog rights classification")
+        if rights != expected_rights:
+            raise ValueError("backup rights classification differs")
+        if rights["evidence_kind"] != "synthetic" and type(store) is not Directory:
+            raise ValueError("real catalog backup/restore is local-directory only")
         if inventory.get("rights") != rights:
             raise ValueError("backup rights manifest differs")
 
@@ -263,6 +286,9 @@ def backup_catalog(
 ) -> str:
     backup_id = validate_backup_id(backup_id)
     base = prefix(backup_id)
+    rights = rights_for_package(package)
+    if rights["evidence_kind"] != "synthetic" and type(store) is not Directory:
+        raise ValueError("real catalog backup/restore is local-directory only")
 
     if member_exists(store, base + COMPLETE):
         raise FileExistsError("catalog backup already exists")
@@ -272,7 +298,6 @@ def backup_catalog(
         )
 
     specification = package.specification()
-    rights = rights_for_package(package)
 
     report, snapshot = reconciled_snapshot(engine, root, specification)
     if not report["ok"]:

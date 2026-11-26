@@ -77,7 +77,9 @@ Original estimate 24–30 hours. M2.T1 inventory was verified on 18 November. Th
 
 The M2 module gate requires released dataset v1, a verified importer and frozen test membership. Derive dataset/methodology notes from the observed files and audit results. M2.T4 uses the existing private Blob resources for its rights-reviewed catalog/manifest backup. Verify rights before uploading dataset/model bytes.
 
-**M2.T4 status (19 November 2026): partial.** The synthetic-only importer, reconciliation, local rights-classified backup, fresh restore with explicit failure recovery, CLI and CI enforcement are implemented and verified on disposable PostgreSQL clusters; see the [catalog runbook](../operations/catalog-runbook.md). Acceptance on the real NEU-DET release (T3 release/freeze pending) and the Blob backup (rights review and Azure authorization pending) remains open and is not claimed.
+**M2.T3 status (25 November 2026): passed.** Real private NEU-DET dataset v1 is frozen; both exports and train-preflight checks passed. See [release evidence](../research/dataset-v1-release.md) and [M2.T4 real ingestion handoff](../operations/m2t4-real-ingestion-kickoff.md). No training or cloud upload authorized.
+
+**M2.T4 status (26 November 2026): local real acceptance passed; global gate blocked.** Existing catalog now admits the pinned NEU-DET v1 release under real authorization. Actual import, resume, repeat idempotency, reconciliation and independent local restore passed; 328 strict tests passed with zero skips. See [real catalog evidence](../research/dataset-v1-catalog.md). Mandatory rights-reviewed private Blob backup/restore remains outstanding; no cloud authorization or upload is implied. M2 is not closed.
 
 ## Module 3 Detector and traceable inference
 

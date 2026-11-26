@@ -1,8 +1,6 @@
 # Dataset preparation implementation — 18 November 2026
 
-Status: implemented and fixture-tested; real dataset release pending T2 human
-review and near-duplicate review. The owner explicitly authorized T3 development
-while T2 review remains open. This is not a waiver of either release gate.
+Current status: M2.T3 **passed** on 25 November 2026; see [dataset v1 release](dataset-v1-release.md) for frozen identities, actual DQ01–DQ10 and export/preflight evidence. Earlier dated development/pending-review notes below are historical.
 
 ## Components and integration
 

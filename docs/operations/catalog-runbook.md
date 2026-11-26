@@ -1,7 +1,8 @@
 # Catalog ingestion, backup and restore runbook (M2.T4)
 
-Scope: the **synthetic-only** T4 catalog (`dataset_name` starting `synthetic-`). Real NEU-DET
-ingestion stays disabled in `load_package` until the M2.T3 release is accepted; no flag bypasses it.
+Scope: the existing synthetic T4 catalog plus the **pinned, owner-authorized
+NEU-DET v1** release. Other real datasets remain rejected. See the real-authorization
+section below; synthetic names cannot bypass real-release verification.
 Backups are local directories. No Azure/Blob transfer is implemented or authorized, and
 a metadata-only backup is not artifact recovery: every backup here carries the verified
 content-addressed objects it lists.
@@ -124,3 +125,79 @@ Do not upload NEU-DET or any dataset bytes to Azure or any remote store from thi
   (several thousand per full run). It does not affect behavior; address it when SQLAlchemy is upgraded.
 - The commit-outcome-unknown window is handled by detection and resume; it cannot be forced in tests
   without a network fault, so it is covered by design and the resume tests rather than by injection.
+
+## Real NEU-DET v1 authorization — 25 November 2026
+
+This section supersedes the synthetic-only restriction above for exactly the
+owner-approved private local NEU-DET version1 release. The synthetic contracts,
+fixture table and existing catalog schema are unchanged. `worker.real_release`
+allowlists the release, source, plan, component packet/review, constraint and frozen
+membership hashes. It validates actual T2 review/audit, reconstructs component
+policy, rechecks source/annotation lineage and runs export preflight. Other real
+releases remain rejected. Missing evidence never falls back to a synthetic name.
+
+All package-based catalog commands accept an evidence-location JSON through
+`VISIONQ_REAL_AUTHORIZATION`. Its keys are `component_packet`,
+`isolation_constraints`, `frozen_membership`; use absolute paths. This file supplies
+locations, not arbitrary approval hashes. Code-pinned identities determine
+admission. The config/catalog carries `evidence_kind=released`, exact authorization
+hashes and receipt. Paths are not used to define immutable identity. Raw auxiliary
+files are classified `source_metadata`, not mistaken for XML. Real release.json
+and review/membership evidence carry annotations and are classified accordingly.
+
+For the retained local evidence environment (credentials are in private mode0600
+files; do not print them):
+
+```zsh
+cd /Users/morshedalam/Developer/AI/visionq
+source artifacts/m2t4-real-9Sm1lP/visionq-t4-real9sm-source.env
+export VISIONQ_DATABASE_URL="$VISIONQ_T4_URL"
+unset VISIONQ_T4_URL VISIONQ_T4_PASSWORD
+export VISIONQ_REAL_AUTHORIZATION="$PWD/artifacts/m2t4-real-9Sm1lP/authorization-locations.json"
+```
+
+The existing CLI arguments are unchanged. Name/version are `NEU-DET`/`1`, release
+and pins are documented in dataset-v1-release.md. Use the dedicated source
+cluster; do not change ordinary application records. Repeated import verifies a
+no-op; it does not overwrite frozen membership. Refer to the evidence script
+`artifacts/m2t4-real-9Sm1lP/run-real.py` for the actual API-level verification.
+Do not rerun that fresh-database script against an already populated database.
+
+### Rights boundary
+
+Real local backup/restore uses only the concrete `Directory` adapter and records
+`owner-authorized-private-local-only`, unresolved redistribution terms, and
+`cloud_authorized=false`. Every included category explicitly permits only private
+local backup/restore: catalog metadata, source metadata, original images,
+annotations and generated images. This is the owner's operational authorization,
+not an inferred dataset license. Restore verifies the same classification,
+records/version identity and every required artifact; metadata-only is not full
+recovery. Modified rights declarations and nonlocal adapters are rejected.
+
+**No cloud category is authorized now.** Candidate metadata-only scope for a later
+rights review: schema/migration version, opaque hashes/IDs, non-sensitive aggregate
+counts, methodology and backup verification receipts. The current full catalog
+snapshot includes boxes/lineage and cannot be treated as unrestricted metadata.
+Original images, XML, generated images, annotation-bearing reports and model
+weights require separately documented rights/eligibility and explicit upload
+approval. Prepare a separately reviewed catalog/manifest backup scope before
+private Blob transfer. No Azure calls or uploads occur in this implementation.
+Mandatory private Blob backup/restore acceptance remains outstanding; do not mark
+M2.T4 or M2 globally passed from local recovery alone.
+
+
+### Retained verification clusters
+
+The task-created `visionq-t4-real9sm-source-db-1` and
+`visionq-t4-real9sm-restore-db-1` containers are stopped after verification; their
+volumes, mode0600 credential files, snapshots and backup are retained. Restart
+only these existing containers when needed:
+
+```zsh
+docker start visionq-t4-real9sm-source-db-1 visionq-t4-real9sm-restore-db-1
+```
+
+Then restore the environment variables above. Do not use `deploy/t4-postgres.sh up`
+with those names: it correctly refuses existing projects. Do not remove volumes
+until backup/evidence retention and recovery requirements are satisfied. The
+ordinary application database was not touched.

@@ -134,11 +134,9 @@ def load_package(
     release_sha256: str,
     dataset_name: str,
     version: int,
+    authorization: Path | None = None,
 ):
-    if not dataset_name.startswith("synthetic-"):
-        raise ValueError(
-            "real ingestion is disabled until T3 release authorization is accepted"
-        )
+    real = not dataset_name.startswith("synthetic-")
     if type(version) is not int or version < 1:
         raise ValueError("dataset version must be a positive integer")
 
@@ -148,9 +146,24 @@ def load_package(
         raise ValueError("source differs from the canonical baseline manifest")
 
     baseline_sha = sha256(baseline_bytes)
-    source_bytes, source_kind = verified_source_bytes(
-        source, observed, baseline_bytes, baseline_sha
-    )
+    real_evidence = []
+    if real:
+        from worker.real_release import admit_identity
+
+        admit_identity(
+            dataset_name, version, release_sha256, baseline_sha, authorization
+        )
+        source_bytes = {}
+        for row in observed:
+            data = (source / row["path"]).read_bytes()
+            if len(data) != row["bytes"] or sha256(data) != row["sha256"]:
+                raise ValueError("real source bytes changed")
+            source_bytes[row["path"]] = data
+        source_kind = "released-neu-det-v1"
+    else:
+        source_bytes, source_kind = verified_source_bytes(
+            source, observed, baseline_bytes, baseline_sha
+        )
 
     verify_export(release, release_sha256)
     if source_kind == "frozen-m3t2":
@@ -187,7 +200,14 @@ def load_package(
     if rebuilt != report:
         raise ValueError("audit cannot be reproduced from source and revisions")
 
-    plan = prepare(source, packet)
+    if real:
+        from worker.real_release import validate_real_release
+
+        plan, real_evidence = validate_real_release(
+            source, baseline, packet, release, authorization
+        )
+    else:
+        plan = prepare(source, packet)
     if exported["plan"] != plan:
         raise ValueError("exported plan differs from the reviewed source")
     if plan["class_map_version"] != CLASS_MAP_VERSION:
@@ -195,14 +215,14 @@ def load_package(
     if plan["classes"] != list(CLASSES):
         raise ValueError("class ordering differs")
 
-    if plan["near_candidates"]:
+    if plan["near_candidates"] and not real:
         raise ValueError(
             "this synthetic fixture requires no unresolved near candidates"
         )
 
     config = {
         "importer": "visionq-catalog-v1",
-        "evidence_kind": "synthetic",
+        "evidence_kind": "released" if real else "synthetic",
         "dataset_name": dataset_name,
         "version": version,
         "source_manifest_sha256": sha256(baseline_bytes),
@@ -211,6 +231,13 @@ def load_package(
         "review_sha256": receipt["review_sha256"],
         "class_map_version": CLASS_MAP_VERSION,
     }
+    if real:
+        config["real_authorization"] = {
+            "plan_sha256": sha256(canonical_json(plan)),
+            "evidence_sha256": sorted(sha256(data) for data in real_evidence),
+            "component_review_receipt": exported["component_review_receipt"],
+            "scope": "owner-authorized private local NEU-DET v1 ingestion",
+        }
     config_bytes = canonical_json(config)
     config_sha = sha256(config_bytes)
     version_id = identity("version", config_sha)
@@ -243,10 +270,16 @@ def load_package(
     for path, data in source_bytes.items():
         add_blob(
             data,
-            "original_images" if path.startswith("IMAGES/") else "annotations",
+            "original_images"
+            if path.startswith("IMAGES/")
+            else (
+                "annotations" if path.startswith("ANNOTATIONS/") else "source_metadata"
+            ),
         )
     add_blob(baseline_bytes, "catalog_metadata")
     add_blob(config_bytes, "catalog_metadata")
+    for data in real_evidence:
+        add_blob(data, "annotations")
 
     export_manifest = json.loads((release / "manifest.json").read_bytes())
     for member in export_manifest:
@@ -256,6 +289,7 @@ def load_package(
             else (
                 "annotations"
                 if member["path"].startswith("labels/")
+                or (real and member["path"] == "release.json")
                 else "catalog_metadata"
             )
         )
@@ -269,7 +303,7 @@ def load_package(
             "id": version_id,
             "dataset_name": dataset_name,
             "version": version,
-            "evidence_kind": "synthetic",
+            "evidence_kind": "released" if real else "synthetic",
             "source_identity_kind": "extracted_manifest_sha256",
             "source_identity": sha256(baseline_bytes),
             "source_manifest_sha256": sha256(baseline_bytes),

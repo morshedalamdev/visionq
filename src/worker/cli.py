@@ -1,6 +1,7 @@
 """Command-line entry point for VisionQ."""
 
 import json
+import os
 import platform
 import sys
 from contextlib import contextmanager
@@ -101,6 +102,9 @@ def catalog_package(
         baseline=baseline,
         packet=packet,
         release=release,
+        authorization=Path(os.environ["VISIONQ_REAL_AUTHORIZATION"])
+        if os.environ.get("VISIONQ_REAL_AUTHORIZATION")
+        else None,
         release_sha256=release_sha,
         dataset_name=dataset_name,
         version=version,
