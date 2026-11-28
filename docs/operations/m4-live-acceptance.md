@@ -112,3 +112,46 @@ After M4's remaining gate passes, open the M5 chat with:
 > frozen M2/M3 changes, commit or push. Follow the manual teaching workflow unless
 > the owner explicitly delegates implementation. Verify all M5.T1 checks and
 > saved-answer restart persistence before advancing within M5.
+
+
+## Manual acceptance — 28 November 2026
+
+Owner-reported manual browser acceptance: synthetic run history; successful,
+failed and partial analytics; paired-run comparisons; unavailable-evidence
+handling; real NEU-DET v1 analytics; 252 processed, zero failures, 553 detections,
+232 images with predictions; authoritative evaluation/performance metrics,
+manifest identities and detector provenance; 44 real inspection screenshots;
+all six classes with boxes, confidence labels and persisted details; successful
+zero-detection states; correct real/synthetic labels.
+Real run: `fe274f2d-4def-575b-8aa1-a46c04f61624`.
+
+Preserved 44 PNGs from /Users/morshedalam/Downloads/ii under
+artifacts/m4-manual-20261128/screenshots with source/destination SHA-256 manifest.
+Copies verified byte-identical. Screenshot review findings above are attributed
+to the owner; Codex has not independently visually reviewed all 44 images.
+
+Retained prior acceptance: strict Python 333 passed/zero skips; frontend 12 tests
+and build passed; API/MCP/SQL agreement; authenticated overlays; five MCP tools;
+live approved application-only retrieval and four cited Qwen answers plus
+unsupported-yield abstention; persisted snapshot/run/image identity after API
+restart. Targeted UI correction: two metric tests passed and diff check passed.
+No full suite, training, evaluation, Azure operation or restricted transfer repeated.
+
+Remaining mandatory check: actual real Run history -> Reopen inspection interaction.
+Source wiring is present (History.onInspect -> App runId -> Inspection.initialRunId),
+but source inspection is not browser acceptance. CUA timed out on 28 November.
+M4 remains open ONLY pending this explicit browser confirmation; do not start M5.
+At http://127.0.0.1:5173/ open Run history, Next datasets four times (current
+100-record pages), select NEU-DET v1, locate fe274f2d (252 succeeded, zero failed),
+click Reopen inspection; confirm the same run, released NEU-DET/test identity,
+persisted image and detections load. Navigate away and repeat to confirm reopening.
+Record actual result before marking M4 passed. No further regression rerun required
+unless this exposes a defect.
+
+M6 non-blocking UI backlog: structured evaluation dashboard; per-class tables and
+charts; bounding-box label clipping/overlap; readable metric names and numeric
+formatting; hide unnecessary internal paths; real dataset discoverability.
+These do not invalidate the owner's accepted evidence semantics.
+
+M5.T1 kickoff remains conditional on the final reopening check; use the exact
+kickoff in docs/operations/m4-live-acceptance.md. M5 implementation not started.

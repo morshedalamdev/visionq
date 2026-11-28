@@ -48,8 +48,8 @@ export function Layout({
           ))}
         </nav>
         <div className="sidebar-note">
-          <strong>Local synthetic mode</strong>
-          <p>Fixture evidence is never presented as live AI or real-model acceptance.</p>
+          <strong>Local evidence console</strong>
+          <p>This catalog includes real and synthetic records. Check each record’s evidence label; the agent page remains a fixture.</p>
         </div>
       </aside>
       <main>{children}</main>

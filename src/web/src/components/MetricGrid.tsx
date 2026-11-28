@@ -33,7 +33,7 @@ export function MetricGrid({ metrics }: { metrics: Metric[] }) {
           <strong>{displayMetric(metric)}</strong>
           <span>
             {metric.denominator_name
-              ? `${metric.denominator_name}: ${metric.denominator_value}`
+              ? `${labels[metric.denominator_name] ?? metric.denominator_name}: ${metric.denominator_value}`
               : metric.unit}
           </span>
           <em>{metric.evidence_status}</em>

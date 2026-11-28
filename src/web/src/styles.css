@@ -112,7 +112,7 @@ label { display: grid; gap: .35rem; color: var(--muted); font-size: .8rem; flex:
 .detection-list > div { display: grid; background: #0b1525; padding: .65rem; border-radius: 8px; gap: .2rem; }
 .detection-list span { color: var(--muted); font-size: .8rem; }
 .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .7rem; }
-.metric-card { background: #0b1525; border: 1px solid #1e2e46; border-radius: 12px; padding: .85rem; display: grid; gap: .25rem; }
+.metric-card { min-width: 0; overflow-wrap: anywhere; background: #0b1525; border: 1px solid #1e2e46; border-radius: 12px; padding: .85rem; display: grid; gap: .25rem; }
 .metric-card strong { font-size: 1.55rem; color: var(--accent); }
 .metric-card small, .metric-card span, .metric-card em, .metric-card p { color: var(--muted); }
 .metric-card em { font-size: .7rem; font-style: normal; text-transform: uppercase; }

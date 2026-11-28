@@ -49,6 +49,6 @@ describe("metric evidence formatting", () => {
     );
 
     expect(screen.getByText("Predicted boxes")).toBeInTheDocument();
-    expect(screen.getByText("processed_image_count: 10")).toBeInTheDocument();
+    expect(screen.getByText("Processed: 10")).toBeInTheDocument();
   });
 });
